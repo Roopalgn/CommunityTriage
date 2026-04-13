@@ -117,6 +117,27 @@ const reportTemplates = {
   default: { title: 'Community support report', need: 'Field review and volunteer allocation', issueType: 'General support' },
 }
 
+const demoScenarios = {
+  water: {
+    incident: 'Families in South District have no clean water after two hand pumps stopped working overnight. Children and elderly residents need immediate delivery support.',
+    location: 'South District',
+    support: 'Water, purification tablets, transport support',
+    source: 'Field note from ward volunteer',
+  },
+  flood: {
+    incident: 'Flood water has displaced several families near Riverside Zone. Relief teams need food packets, blankets, and logistics support before evening.',
+    location: 'Riverside Zone',
+    support: 'Food packets, blankets, logistics',
+    source: 'Crowdsourced survey entry',
+  },
+  medical: {
+    incident: 'A community health camp in Central Ward needs volunteers for registration, patient flow, and medicine runners for the afternoon shift.',
+    location: 'Central Ward',
+    support: 'Registration helpers, medical runners',
+    source: 'NGO outreach request',
+  },
+}
+
 const state = {
   reports: [...seedReports],
   nextId: 1045,
@@ -361,11 +382,16 @@ function render() {
       <main class="content">
         <section class="hero" id="overview">
           <div>
-            <span class="eyebrow">Phase 2 workflow</span>
+            <span class="eyebrow">Phase 1 + phase 2 demo ready</span>
             <h2>Turn scattered reports into clear action.</h2>
             <p>
               Submit a community report, let the app extract structured details, then rank and assign the best volunteer response.
             </p>
+            <div class="hero-notes">
+              <span>1. Load a demo scenario</span>
+              <span>2. Analyze the report</span>
+              <span>3. Show the ranked response</span>
+            </div>
           </div>
 
           <div class="hero-panel">
@@ -547,6 +573,18 @@ function render() {
             </div>
           </div>
 
+          <div class="demo-shortcuts">
+            <div>
+              <span>Demo shortcuts</span>
+              <p>Use a preset to make the walkthrough repeatable during judging.</p>
+            </div>
+            <div class="shortcut-actions">
+              <button type="button" class="demo-preset" data-demo-key="water">Load water crisis</button>
+              <button type="button" class="demo-preset" data-demo-key="flood">Load flood relief</button>
+              <button type="button" class="demo-preset" data-demo-key="medical">Load medical camp</button>
+            </div>
+          </div>
+
           <form class="intake-form" id="report-form">
             <label>
               <span>Free-text incident report</span>
@@ -635,27 +673,27 @@ function render() {
         <section class="panel" id="insights">
           <div class="panel-header">
             <div>
-              <span>Extraction preview</span>
-              <h3>Structured AI interpretation</h3>
+              <span>Pitch support</span>
+              <h3>What to show in the demo video</h3>
             </div>
           </div>
 
           <div class="insight-grid">
             <div>
-              <strong>Input model</strong>
-              <p>Report form, search, filters, and batch-ready data structure.</p>
+              <strong>Opening</strong>
+              <p>Show the dashboard landing view and say this is a triage system for NGOs.</p>
             </div>
             <div>
-              <strong>Decision model</strong>
-              <p>Priority scoring, ranking, and volunteer matching with explainable output.</p>
+              <strong>Walkthrough</strong>
+              <p>Load a preset, click analyze, and highlight the extracted fields and score.</p>
             </div>
             <div>
-              <strong>Dashboard shell</strong>
-              <p>Sidebar navigation, metric cards, analytics, and distinct data panels.</p>
+              <strong>Judger focus</strong>
+              <p>Point to the filters, hotspot analytics, and extraction trace to show intelligence.</p>
             </div>
             <div>
-              <strong>Demo readiness</strong>
-              <p>Seeded data with a live workflow that can be shown immediately in a pitch video.</p>
+              <strong>Close</strong>
+              <p>Explain that phase 2 can expand into OCR, PDF upload, and more advanced prioritization.</p>
             </div>
           </div>
         </section>
@@ -694,6 +732,25 @@ function render() {
   document.getElementById('sort-filter')?.addEventListener('change', (event) => {
     state.filters.sort = event.target.value
     render()
+  })
+
+  document.querySelectorAll('.demo-preset').forEach((button) => {
+    button.addEventListener('click', () => {
+      const preset = demoScenarios[button.getAttribute('data-demo-key')]
+      if (!preset) {
+        return
+      }
+
+      const form = document.getElementById('report-form')
+      if (!form) {
+        return
+      }
+
+      form.elements.incident.value = preset.incident
+      form.elements.location.value = preset.location
+      form.elements.support.value = preset.support
+      form.elements.source.value = preset.source
+    })
   })
 }
 

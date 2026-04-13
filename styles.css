@@ -167,6 +167,22 @@ button:hover {
   gap: 0.8rem;
 }
 
+.hero-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.hero-notes span,
+.demo-shortcuts span {
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #eef2ff;
+  font-size: 0.82rem;
+}
+
 .hero h2 {
   font-size: clamp(2rem, 4vw, 3.8rem);
   max-width: 12ch;
@@ -245,6 +261,32 @@ button:hover {
 
 .panel-header {
   align-items: center;
+}
+
+.demo-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.demo-shortcuts p {
+  margin: 0.35rem 0 0;
+  color: rgba(238, 242, 255, 0.72);
+}
+
+.shortcut-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.shortcut-actions button {
+  padding: 0.7rem 0.95rem;
 }
 
 .analytics-band {
@@ -363,6 +405,10 @@ button:hover {
 .insight-grid div {
   border-radius: 1.1rem;
   padding: 1rem;
+}
+
+.insight-grid p {
+  margin-bottom: 0;
 }
 
 .report-topline,
@@ -531,5 +577,9 @@ button:hover {
 
   .form-actions {
     align-items: stretch;
+  }
+
+  .demo-shortcuts {
+    flex-direction: column;
   }
 }

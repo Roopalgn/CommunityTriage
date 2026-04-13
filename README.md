@@ -1,26 +1,34 @@
 # CommunityTriage
 
-AI-powered NGO operations dashboard that turns scattered community reports into structured needs, prioritizes urgent cases, and matches the right volunteers to the right tasks. Built for fast triage, transparent decision-making, and scalable social impact.
+Explainable NGO operations dashboard that turns scattered community reports into structured needs, prioritizes urgent cases, and matches the right volunteers to the right tasks. Built for fast triage, transparent decision-making, and scalable social impact.
 
 ## Run locally
 
-Open `index.html` directly in a browser. The project is intentionally dependency-free for the first push so it can be reviewed immediately.
+Open `index.html` directly in a browser. The current Push 5 build is intentionally dependency-free so it can be reviewed immediately.
 
-## Foundation scope
+## Current Push 5 scope
 
 - Dashboard shell with navigation
 - Seeded community report data
 - Seeded volunteer data
 - Priority ranking display
-- Matching and explainability panels
+- Filters, hotspot analytics, and extraction trace
+- Rule-based triage workflow with duplicate flagging
+- Volunteer matching with explainable reasoning
 
-## Phase 2 workflow
+## Current workflow
 
 - Report intake form for free-text incident submissions
-- AI-style extraction of issue type, urgency, confidence, and location
-- Priority scoring and duplicate detection
+- Rule-based extraction of issue type, urgency, confidence, and location
+- Priority scoring, duplicate detection, and queue metrics
 - Volunteer matching with transparent reasoning
 - Live re-render of the dashboard after each new report
+
+## Google AI path
+
+- Push 5 keeps the workflow stable with a transparent rule-based engine
+- Push 6 upgrades the extraction path to Gemini through a thin backend layer
+- The visible UI is already shaped around that future handoff
 
 ## Demo flow
 
@@ -35,4 +43,4 @@ Open `index.html` directly in a browser. The project is intentionally dependency
 - Problem statement and why it matters
 - Live demo using a preset report
 - Filters, hotspots, and explainability
-- Phase 2 roadmap: OCR, PDF intake, richer routing, and deeper governance
+- Next step: Gemini integration, then OCR, PDF intake, richer routing, and deeper governance

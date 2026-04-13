@@ -1,4 +1,4 @@
-const seedReports = [
+const rawSeedReports = [
   {
     id: 'CT-1042',
     title: 'Water scarcity near Ward 7',
@@ -10,14 +10,15 @@ const seedReports = [
     need: 'Water drive and transport support',
     status: 'Needs immediate attention',
     confidence: 96,
-    reason: 'Repeated water shortage terms and urgent community impact.',
+    reason: 'Repeated water shortage signals and same-day delivery need indicate immediate community risk.',
+    source: 'Ward volunteer field note',
     match: {
       name: 'Asha Menon',
       skills: ['Logistics', 'Crowd coordination'],
       location: 'South District',
       availability: 'Now',
       score: 94,
-      reason: 'Location and logistics skills align with a water relief response.',
+      reason: 'Same-location logistics support is the strongest fit for rapid water response.',
     },
   },
   {
@@ -31,14 +32,15 @@ const seedReports = [
     need: 'Food packets, blankets, logistics',
     status: 'Assign next available team',
     confidence: 90,
-    reason: 'Flood and displaced-family keywords indicate immediate logistics support.',
+    reason: 'Displacement and relief keywords suggest time-sensitive coordination and procurement support.',
+    source: 'Crowdsourced survey entry',
     match: {
       name: 'Neha Das',
       skills: ['Procurement', 'Supply handling'],
       location: 'Riverside Zone',
       availability: 'Flexible',
       score: 91,
-      reason: 'Procurement and supply handling fit relief distribution needs.',
+      reason: 'Procurement and supply handling align closely with relief distribution needs.',
     },
   },
   {
@@ -52,20 +54,22 @@ const seedReports = [
     need: 'Registration helpers and medical runners',
     status: 'Queue for afternoon shift',
     confidence: 83,
-    reason: 'Health camp context suggests moderate urgency and support coordination.',
+    reason: 'The request is operationally important but less acute than disruption or disaster response cases.',
+    source: 'NGO outreach request',
     match: {
       name: 'Ritvik Sharma',
       skills: ['Medical support', 'Registration'],
       location: 'Central Ward',
       availability: 'Today 2 PM',
       score: 86,
-      reason: 'Medical support and registration skills match the request.',
+      reason: 'Medical support and registration experience match the camp workflow well.',
     },
   },
 ]
 
 const volunteers = [
   {
+    id: 'VOL-11',
     name: 'Asha Menon',
     skills: ['Logistics', 'Crowd coordination'],
     location: 'South District',
@@ -73,6 +77,7 @@ const volunteers = [
     score: 94,
   },
   {
+    id: 'VOL-18',
     name: 'Ritvik Sharma',
     skills: ['Medical support', 'Registration'],
     location: 'Central Ward',
@@ -80,6 +85,7 @@ const volunteers = [
     score: 86,
   },
   {
+    id: 'VOL-24',
     name: 'Neha Das',
     skills: ['Procurement', 'Supply handling'],
     location: 'Riverside Zone',
@@ -87,6 +93,7 @@ const volunteers = [
     score: 91,
   },
   {
+    id: 'VOL-33',
     name: 'Imran Khan',
     skills: ['Field coordination', 'Rapid response'],
     location: 'North Point',
@@ -98,20 +105,20 @@ const volunteers = [
 const navItems = ['Overview', 'Cases', 'Intake', 'Volunteers', 'Insights']
 
 const urgencyRules = [
-  { terms: ['water', 'dry', 'thirst', 'sanitation'], urgency: 'Critical', baseScore: 34, label: 'Water access' },
-  { terms: ['flood', 'evacuated', 'damaged', 'blanket'], urgency: 'High', baseScore: 28, label: 'Flood relief' },
-  { terms: ['medical', 'medicine', 'health', 'camp'], urgency: 'High', baseScore: 24, label: 'Medical support' },
-  { terms: ['food', 'hunger', 'meal', 'ration'], urgency: 'High', baseScore: 22, label: 'Food support' },
-  { terms: ['school', 'children', 'tutoring'], urgency: 'Medium', baseScore: 16, label: 'Education support' },
+  { terms: ['water', 'dry', 'thirst', 'sanitation', 'pump'], urgency: 'Critical', baseScore: 34, label: 'Water access' },
+  { terms: ['flood', 'evacuated', 'damaged', 'blanket', 'displaced'], urgency: 'High', baseScore: 28, label: 'Flood relief' },
+  { terms: ['medical', 'medicine', 'health', 'camp', 'patient'], urgency: 'High', baseScore: 24, label: 'Medical support' },
+  { terms: ['food', 'hunger', 'meal', 'ration', 'nutrition'], urgency: 'High', baseScore: 22, label: 'Food support' },
+  { terms: ['school', 'children', 'tutoring', 'class'], urgency: 'Medium', baseScore: 16, label: 'Education support' },
   { terms: ['volunteer', 'staff', 'runner', 'registration'], urgency: 'Medium', baseScore: 14, label: 'Support coordination' },
 ]
 
 const locationAliases = ['south district', 'central ward', 'riverside zone', 'north point', 'east market', 'west end']
 
 const reportTemplates = {
-  water: { title: 'Urgent water support request', need: 'Water delivery, purification, and logistics', issueType: 'Water shortage' },
+  water: { title: 'Urgent water support request', need: 'Water delivery, purification tablets, and transport coordination', issueType: 'Water shortage' },
   flood: { title: 'Flood response coordination needed', need: 'Food packets, blankets, and transport support', issueType: 'Flood relief' },
-  medical: { title: 'Medical camp assistance required', need: 'Registration, patient flow, and medical runners', issueType: 'Medical support' },
+  medical: { title: 'Medical camp assistance required', need: 'Registration support, patient flow, and medical runners', issueType: 'Medical support' },
   food: { title: 'Food assistance needed', need: 'Meals, dry ration, and distribution help', issueType: 'Food support' },
   education: { title: 'Learning support request', need: 'Volunteer tutors, supplies, and venue coordination', issueType: 'Education support' },
   default: { title: 'Community support report', need: 'Field review and volunteer allocation', issueType: 'General support' },
@@ -138,18 +145,6 @@ const demoScenarios = {
   },
 }
 
-const state = {
-  reports: [...seedReports],
-  nextId: 1045,
-  lastAnalysis: null,
-  filters: {
-    search: '',
-    urgency: 'All',
-    location: 'All',
-    sort: 'priority',
-  },
-}
-
 const root = document.getElementById('root')
 
 function sanitize(text) {
@@ -170,11 +165,11 @@ function titleCase(value) {
 function formatLocation(value) {
   const normalized = String(value).trim().toLowerCase()
   const foundAlias = locationAliases.find((alias) => normalized.includes(alias))
-  return foundAlias ? titleCase(foundAlias) : titleCase(value.trim())
+  return foundAlias ? titleCase(foundAlias) : titleCase(normalized || 'Community Zone')
 }
 
 function summarizeText(text) {
-  const cleaned = text.trim().replace(/\s+/g, ' ')
+  const cleaned = String(text).trim().replace(/\s+/g, ' ')
   return cleaned.length <= 120 ? cleaned : `${cleaned.slice(0, 117)}...`
 }
 
@@ -182,14 +177,59 @@ function createReportId() {
   return `CT-${state.nextId++}`
 }
 
-function buildExtractionFields(text, location, urgency, confidence, issueType) {
+function getTemplateKey(label) {
+  const map = {
+    'Water access': 'water',
+    'Flood relief': 'flood',
+    'Medical support': 'medical',
+    'Food support': 'food',
+    'Education support': 'education',
+    'Support coordination': 'default',
+  }
+
+  return map[label] || 'default'
+}
+
+function buildExtractionFields(text, location, urgency, confidence, issueType, support, source) {
   return [
     { label: 'Issue type', value: issueType },
     { label: 'Location', value: location },
     { label: 'Urgency', value: urgency },
     { label: 'Confidence', value: `${confidence}%` },
+    { label: 'Expected support', value: support },
+    { label: 'Source', value: source },
     { label: 'Source summary', value: summarizeText(text) },
   ]
+}
+
+function hydrateSeedReport(report) {
+  return {
+    ...report,
+    rawText: report.summary,
+    extractionFields: buildExtractionFields(
+      report.summary,
+      report.location,
+      report.urgency,
+      report.confidence,
+      report.issueType,
+      report.need,
+      report.source,
+    ),
+  }
+}
+
+function availabilityBonus(availability) {
+  const normalized = availability.toLowerCase()
+
+  if (normalized === 'now') {
+    return 8
+  }
+
+  if (normalized === 'flexible') {
+    return 4
+  }
+
+  return 1
 }
 
 function recommendVolunteer(location, templateKey, urgency) {
@@ -203,58 +243,56 @@ function recommendVolunteer(location, templateKey, urgency) {
   }
 
   const expectedSkills = targetSkills[templateKey] || targetSkills.default
+  const urgencyBonus = urgency === 'Critical' ? 5 : urgency === 'High' ? 3 : 0
 
-  const scoreMap = volunteers.map((volunteer) => {
-    const skillHits = volunteer.skills.filter((skill) => expectedSkills.some((expected) => expected.toLowerCase() === skill.toLowerCase())).length
+  const scoredVolunteers = volunteers.map((volunteer) => {
+    const skillHits = volunteer.skills.filter((skill) =>
+      expectedSkills.some((expected) => expected.toLowerCase() === skill.toLowerCase()),
+    ).length
     const locationMatch = volunteer.location.toLowerCase() === location.toLowerCase() ? 14 : 0
-    const urgencyBonus = urgency === 'Critical' ? 5 : urgency === 'High' ? 3 : 0
-    const score = Math.min(99, 66 + skillHits * 14 + locationMatch + urgencyBonus)
+    const speedBonus = availabilityBonus(volunteer.availability)
+    const score = Math.min(99, 58 + skillHits * 14 + locationMatch + speedBonus + urgencyBonus)
 
     return {
       ...volunteer,
       score,
-      reason: `${volunteer.skills.join(', ')} with ${locationMatch ? 'same-location' : 'broader-area'} coverage.`,
+      reason: `${volunteer.skills.join(', ')} | ${locationMatch ? 'same-location coverage' : 'cross-area support'} | availability ${volunteer.availability.toLowerCase()}.`,
     }
   })
 
-  return scoreMap.sort((left, right) => right.score - left.score)[0]
+  return scoredVolunteers.sort((left, right) => right.score - left.score)[0]
 }
 
-function extractFromText(text, locationInput) {
-  const normalized = text.toLowerCase()
-  const matchedRule = urgencyRules.find((rule) => rule.terms.some((term) => normalized.includes(term))) || urgencyRules[urgencyRules.length - 1]
-  const templateKey = matchedRule.label === 'Water access'
-    ? 'water'
-    : matchedRule.label === 'Flood relief'
-      ? 'flood'
-      : matchedRule.label === 'Medical support'
-        ? 'medical'
-        : matchedRule.label === 'Food support'
-          ? 'food'
-          : matchedRule.label === 'Education support'
-            ? 'education'
-            : 'default'
-
-  const location = locationInput?.trim()
+function extractFromText(text, locationInput, supportInput, sourceInput) {
+  const normalized = String(text).toLowerCase()
+  const matchedRule =
+    urgencyRules.find((rule) => rule.terms.some((term) => normalized.includes(term))) ||
+    urgencyRules[urgencyRules.length - 1]
+  const templateKey = getTemplateKey(matchedRule.label)
+  const location = locationInput.trim()
     ? formatLocation(locationInput)
     : formatLocation(locationAliases.find((alias) => normalized.includes(alias)) || 'Community Zone')
-
-  const confidence = Math.min(99, 62 + matchedRule.baseScore + Math.min(12, normalized.split(/\s+/).filter(Boolean).length % 11))
-  const urgencyBoost = normalized.includes('immediately') || normalized.includes('today') || normalized.includes('urgent')
-    ? 10
-    : normalized.includes('soon') || normalized.includes('help')
-      ? 4
-      : 0
-
+  const confidence = Math.min(
+    99,
+    62 + matchedRule.baseScore + Math.min(12, normalized.split(/\s+/).filter(Boolean).length % 11),
+  )
+  const urgencyBoost =
+    normalized.includes('immediately') || normalized.includes('today') || normalized.includes('urgent')
+      ? 10
+      : normalized.includes('soon') || normalized.includes('help')
+        ? 4
+        : 0
   const score = Math.min(99, matchedRule.baseScore + urgencyBoost + Math.min(30, confidence - 60))
-  const status = matchedRule.urgency === 'Critical'
-    ? 'Needs immediate attention'
-    : matchedRule.urgency === 'High'
-      ? 'Assign next available team'
-      : 'Queue for review'
-
   const issueType = reportTemplates[templateKey].issueType
-  const reason = `${matchedRule.label} signals detected in the report, with ${matchedRule.urgency.toLowerCase()} urgency cues and a ${confidence}% extraction confidence.`
+  const need = supportInput || reportTemplates[templateKey].need
+  const status =
+    matchedRule.urgency === 'Critical'
+      ? 'Needs immediate attention'
+      : matchedRule.urgency === 'High'
+        ? 'Assign next available team'
+        : 'Queue for review'
+  const reason = `${matchedRule.label} signals detected in the report, with ${matchedRule.urgency.toLowerCase()} urgency cues and ${confidence}% extraction confidence from the current rule-based engine.`
+  const source = sourceInput || 'Submitted through intake form'
 
   return {
     title: reportTemplates[templateKey].title,
@@ -263,24 +301,13 @@ function extractFromText(text, locationInput) {
     urgency: matchedRule.urgency,
     score,
     summary: summarizeText(text),
-    need: reportTemplates[templateKey].need,
+    need,
     status,
     confidence,
     reason,
+    source,
     match: recommendVolunteer(location, templateKey, matchedRule.urgency),
-    extractedFields: buildExtractionFields(text, location, matchedRule.urgency, confidence, issueType),
-  }
-}
-
-function summarizeCounts(reports) {
-  const urgentCount = reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length
-  const resolvedCount = Math.max(137, Math.round(reports.length * 0.55))
-
-  return {
-    triaged: reports.length,
-    urgent: urgentCount,
-    activeVolunteers: volunteers.length,
-    resolved: resolvedCount,
+    extractionFields: buildExtractionFields(text, location, matchedRule.urgency, confidence, issueType, need, source),
   }
 }
 
@@ -288,9 +315,30 @@ function normalizeFormValue(formData, key) {
   return String(formData.get(key) || '').trim()
 }
 
-function isDuplicateReport(text) {
-  const normalized = text.toLowerCase().replace(/\s+/g, ' ')
-  return state.reports.some((report) => report.summary.toLowerCase().includes(normalized.slice(0, 24)))
+function tokenize(text) {
+  return String(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((token) => token.length > 2)
+}
+
+function findDuplicateReport(text, locationHint) {
+  const incomingTokens = tokenize(text)
+  const incomingLocation = formatLocation(locationHint || '')
+
+  if (!incomingTokens.length) {
+    return null
+  }
+
+  return state.reports.find((report) => {
+    const existingTokens = tokenize(`${report.title} ${report.summary} ${report.need}`)
+    const sharedTokens = incomingTokens.filter((token) => existingTokens.includes(token))
+    const overlapRatio = sharedTokens.length / Math.max(incomingTokens.length, 1)
+    const sameLocation = incomingLocation !== 'Community Zone' && report.location === incomingLocation
+
+    return overlapRatio >= 0.55 || (sameLocation && overlapRatio >= 0.35)
+  })
 }
 
 function getFilteredReports() {
@@ -298,11 +346,10 @@ function getFilteredReports() {
 
   return [...state.reports]
     .filter((report) => {
-      const matchesSearch = !query || [report.title, report.summary, report.location, report.issueType, report.need]
+      const matchesSearch = !query || [report.title, report.summary, report.location, report.issueType, report.need, report.source]
         .join(' ')
         .toLowerCase()
         .includes(query)
-
       const matchesUrgency = state.filters.urgency === 'All' || report.urgency === state.filters.urgency
       const matchesLocation = state.filters.location === 'All' || report.location === state.filters.location
 
@@ -321,17 +368,27 @@ function getFilteredReports() {
     })
 }
 
+function summarizeCounts(reports) {
+  const urgent = reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length
+  const reviewQueue = reports.filter((report) => report.urgency === 'Medium' || report.confidence < 85).length
+
+  return {
+    triaged: reports.length,
+    urgent,
+    activeVolunteers: volunteers.length,
+    reviewQueue,
+  }
+}
+
 function buildAnalytics(reports) {
   const byLocation = reports.reduce((accumulator, report) => {
     accumulator[report.location] = (accumulator[report.location] || 0) + 1
     return accumulator
   }, {})
-
   const byIssue = reports.reduce((accumulator, report) => {
     accumulator[report.issueType] = (accumulator[report.issueType] || 0) + 1
     return accumulator
   }, {})
-
   const topLocation = Object.entries(byLocation).sort((left, right) => right[1] - left[1])[0]
   const topIssue = Object.entries(byIssue).sort((left, right) => right[1] - left[1])[0]
   const averageConfidence = Math.round(
@@ -344,9 +401,25 @@ function buildAnalytics(reports) {
     topIssue: topIssue ? topIssue[0] : 'No issue yet',
     topIssueCount: topIssue ? topIssue[1] : 0,
     averageConfidence,
-    urgentShare: reports.length ? Math.round((reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length / reports.length) * 100) : 0,
+    urgentShare: reports.length
+      ? Math.round((reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length / reports.length) * 100)
+      : 0,
   }
 }
+
+const state = {
+  reports: rawSeedReports.map(hydrateSeedReport),
+  nextId: 1045,
+  lastAnalysis: null,
+  filters: {
+    search: '',
+    urgency: 'All',
+    location: 'All',
+    sort: 'priority',
+  },
+}
+
+state.lastAnalysis = state.reports[0]
 
 function render() {
   const counts = summarizeCounts(state.reports)
@@ -361,14 +434,12 @@ function render() {
         <div>
           <div class="brand-mark">CT</div>
           <h1>CommunityTriage</h1>
-          <p>AI-assisted triage for urgent community needs.</p>
+          <p>Explainable NGO triage for urgent community needs.</p>
         </div>
 
         <nav>
           ${navItems
-            .map((item, index) => `
-              <a href="#${item.toLowerCase()}" class="${index === 0 ? 'active' : ''}">${item}</a>
-            `)
+            .map((item, index) => `<a href="#${item.toLowerCase()}" class="${index === 0 ? 'active' : ''}">${item}</a>`)
             .join('')}
         </nav>
 
@@ -382,30 +453,30 @@ function render() {
       <main class="content">
         <section class="hero" id="overview">
           <div>
-            <span class="eyebrow">Phase 1 + phase 2 demo ready</span>
+            <span class="eyebrow">Phase 1 prototype hardening</span>
             <h2>Turn scattered reports into clear action.</h2>
             <p>
-              Submit a community report, let the app extract structured details, then rank and assign the best volunteer response.
+              Intake community reports, structure the need, rank urgency, and recommend the best volunteer response with visible reasoning.
             </p>
             <div class="hero-notes">
               <span>1. Load a demo scenario</span>
               <span>2. Analyze the report</span>
-              <span>3. Show the ranked response</span>
+              <span>3. Show ranked action and reasoning</span>
             </div>
           </div>
 
           <div class="hero-panel">
             <div>
-              <span>AI input</span>
-              <strong>Text, CSV, and field notes</strong>
+              <span>Current engine</span>
+              <strong>Rule-based extraction</strong>
             </div>
             <div>
               <span>Output</span>
               <strong>Priority-ranked action list</strong>
             </div>
             <div>
-              <span>Google AI</span>
-              <strong>Gemini-powered extraction</strong>
+              <span>Google AI next</span>
+              <strong>Gemini integration in Push 6</strong>
             </div>
           </div>
         </section>
@@ -414,22 +485,22 @@ function render() {
           <article class="metric-card">
             <span>Reports triaged</span>
             <strong>${counts.triaged}</strong>
-            <small>Incoming reports processed in the current working set.</small>
+            <small>Cases currently in the working queue.</small>
           </article>
           <article class="metric-card">
             <span>Urgent cases</span>
             <strong>${counts.urgent}</strong>
-            <small>Critical or high-priority cases waiting on response.</small>
+            <small>Critical or high-priority items waiting on response.</small>
           </article>
           <article class="metric-card">
             <span>Active volunteers</span>
             <strong>${counts.activeVolunteers}</strong>
-            <small>Available response profiles for matching.</small>
+            <small>Profiles available for matching in this demo dataset.</small>
           </article>
           <article class="metric-card">
-            <span>Resolved cases</span>
-            <strong>${counts.resolved}</strong>
-            <small>Projected closed cases based on current triage output.</small>
+            <span>Review queue</span>
+            <strong>${counts.reviewQueue}</strong>
+            <small>Cases that need more confidence or human review.</small>
           </article>
         </section>
 
@@ -445,22 +516,22 @@ function render() {
             <div>
               <span>Top hotspot</span>
               <strong>${sanitize(analytics.topLocation)}</strong>
-              <small>${analytics.topLocationCount} active reports in the current filtered view.</small>
+              <small>${analytics.topLocationCount} active reports in the filtered view.</small>
             </div>
             <div>
               <span>Dominant issue</span>
               <strong>${sanitize(analytics.topIssue)}</strong>
-              <small>${analytics.topIssueCount} similar cases feeding the triage queue.</small>
+              <small>${analytics.topIssueCount} related cases feeding the queue.</small>
             </div>
             <div>
               <span>Average confidence</span>
               <strong>${analytics.averageConfidence}%</strong>
-              <small>Confidence from AI extraction across the visible set.</small>
+              <small>Confidence from the current structured extraction path.</small>
             </div>
             <div>
               <span>Urgent share</span>
               <strong>${analytics.urgentShare}%</strong>
-              <small>Critical and high-priority items in the filtered list.</small>
+              <small>Portion of visible cases that need fast attention.</small>
             </div>
           </div>
         </section>
@@ -470,13 +541,13 @@ function render() {
             <div class="panel-header">
               <div>
                 <span>Urgent cases</span>
-                <h3>AI-ranked community reports</h3>
+                <h3>Ranked community reports</h3>
               </div>
               <button type="button" data-scroll-target="#intake">New report</button>
             </div>
 
-            <div class="filter-bar" id="filter-bar">
-              <input id="case-search" type="search" value="${sanitize(state.filters.search)}" placeholder="Search location, issue, or need" />
+            <div class="filter-bar">
+              <input id="case-search" type="search" value="${sanitize(state.filters.search)}" placeholder="Search location, issue, or source" />
               <select id="urgency-filter">
                 ${['All', 'Critical', 'High', 'Medium']
                   .map((value) => `<option value="${value}" ${state.filters.urgency === value ? 'selected' : ''}>${value}</option>`)
@@ -507,11 +578,11 @@ function render() {
                         <strong>${sanitize(report.title)}</strong>
                         <span>${sanitize(report.urgency)}</span>
                       </div>
-                      <small class="report-subline">${sanitize(report.issueType)} · ${sanitize(report.location)}</small>
+                      <small class="report-subline">${sanitize(report.issueType)} | ${sanitize(report.location)}</small>
                       <p>${sanitize(report.summary)}</p>
                       <div class="report-meta">
-                        <span>${sanitize(report.location)}</span>
                         <span>${sanitize(report.id)}</span>
+                        <span>${sanitize(report.source)}</span>
                         <span>${report.score}% priority</span>
                         <span>${report.confidence}% confidence</span>
                       </div>
@@ -545,10 +616,10 @@ function render() {
                     <article class="volunteer-card">
                       <div>
                         <strong>${sanitize(volunteer.name)}</strong>
-                        <span>${volunteer.score}% match</span>
+                        <span>${volunteer.score}% baseline fit</span>
                       </div>
-                      <p>${sanitize(volunteer.skills.join(' • '))}</p>
-                      <small>${sanitize(volunteer.location)} · Available ${sanitize(volunteer.availability)}</small>
+                      <p>${sanitize(volunteer.skills.join(' | '))}</p>
+                      <small>${sanitize(volunteer.location)} | Available ${sanitize(volunteer.availability)}</small>
                     </article>
                   `,
                 )
@@ -559,7 +630,7 @@ function render() {
               <span>Explainability</span>
               <strong>Why these matches?</strong>
               <small>
-                The system compares location, skill tags, and availability to make the recommendation transparent.
+                The current scoring combines skill overlap, location fit, and volunteer availability so the recommendation stays easy to explain.
               </small>
             </div>
           </aside>
@@ -569,14 +640,14 @@ function render() {
           <div class="panel-header">
             <div>
               <span>Report intake</span>
-              <h3>Submit a new incident for AI triage</h3>
+              <h3>Submit a new incident for triage</h3>
             </div>
           </div>
 
           <div class="demo-shortcuts">
             <div>
               <span>Demo shortcuts</span>
-              <p>Use a preset to make the walkthrough repeatable during judging.</p>
+              <p>Use a preset to keep the judging walkthrough fast and repeatable.</p>
             </div>
             <div class="shortcut-actions">
               <button type="button" class="demo-preset" data-demo-key="water">Load water crisis</button>
@@ -605,23 +676,23 @@ function render() {
 
             <label>
               <span>Source tag</span>
-              <input name="source" type="text" placeholder="Field note, survey, WhatsApp forward, PDF" />
+              <input name="source" type="text" placeholder="Field note, survey, hotline, spreadsheet" />
             </label>
 
             <div class="form-actions">
               <button type="submit">Analyze report</button>
-              <small>Extracts structured data, assigns a priority score, and recommends the best volunteer match.</small>
+              <small>Push 5 uses a transparent rule-based engine so the workflow stays stable while Gemini integration is added next.</small>
             </div>
           </form>
 
           <div class="intake-results">
-            <div class="result-card" id="result-summary">
+            <div class="result-card">
               <span>Latest triage result</span>
-              <strong>${latest ? sanitize(latest.title) : 'No new report yet'}</strong>
-              <p>${latest ? sanitize(latest.reason) : 'Submit an incident to see structured extraction, scoring, and matching.'}</p>
+              <strong>${latest ? sanitize(latest.title) : 'No report analyzed yet'}</strong>
+              <p>${latest ? sanitize(latest.reason) : 'Submit an incident to see structured extraction, scoring, and volunteer matching.'}</p>
             </div>
 
-            <div class="result-grid" id="result-fields">
+            <div class="result-grid">
               <div>
                 <strong>Issue type</strong>
                 <p>${latest ? sanitize(latest.issueType) : 'Waiting for input'}</p>
@@ -645,7 +716,7 @@ function render() {
             <div class="panel-header">
               <div>
                 <span>Extraction trace</span>
-                <h3>What the AI used to decide</h3>
+                <h3>What the current engine used</h3>
               </div>
             </div>
 
@@ -655,6 +726,8 @@ function render() {
                 { label: 'Location', value: 'Waiting for input' },
                 { label: 'Urgency', value: 'Waiting for input' },
                 { label: 'Confidence', value: 'Waiting for input' },
+                { label: 'Expected support', value: 'Waiting for input' },
+                { label: 'Source', value: 'Waiting for input' },
                 { label: 'Source summary', value: 'Submit a report to see the trace.' },
               ])
                 .map(
@@ -674,33 +747,33 @@ function render() {
           <div class="panel-header">
             <div>
               <span>Pitch support</span>
-              <h3>What to show in the demo video</h3>
+              <h3>What to say during the demo</h3>
             </div>
           </div>
 
           <div class="insight-grid">
             <div>
-              <strong>Opening</strong>
-              <p>Show the dashboard landing view and say this is a triage system for NGOs.</p>
+              <strong>Problem framing</strong>
+              <p>NGOs receive scattered reports and need a fast way to structure, rank, and act on them.</p>
             </div>
             <div>
-              <strong>Walkthrough</strong>
-              <p>Load a preset, click analyze, and highlight the extracted fields and score.</p>
+              <strong>Current prototype</strong>
+              <p>This build shows reliable intake, explainable scoring, hotspot signals, and volunteer matching in one flow.</p>
             </div>
             <div>
-              <strong>Judger focus</strong>
-              <p>Point to the filters, hotspot analytics, and extraction trace to show intelligence.</p>
+              <strong>Trust layer</strong>
+              <p>The dashboard exposes confidence, rationale, and source context so decisions stay explainable.</p>
             </div>
             <div>
-              <strong>Close</strong>
-              <p>Explain that phase 2 can expand into OCR, PDF upload, and more advanced prioritization.</p>
+              <strong>Next step</strong>
+              <p>Push 6 upgrades the extraction path to Gemini while preserving the same visible workflow.</p>
             </div>
           </div>
         </section>
       </main>
     </div>
   `
-
+ 
   const form = document.getElementById('report-form')
   form.addEventListener('submit', handleSubmit)
 
@@ -737,19 +810,16 @@ function render() {
   document.querySelectorAll('.demo-preset').forEach((button) => {
     button.addEventListener('click', () => {
       const preset = demoScenarios[button.getAttribute('data-demo-key')]
-      if (!preset) {
+      const formElement = document.getElementById('report-form')
+
+      if (!preset || !formElement) {
         return
       }
 
-      const form = document.getElementById('report-form')
-      if (!form) {
-        return
-      }
-
-      form.elements.incident.value = preset.incident
-      form.elements.location.value = preset.location
-      form.elements.support.value = preset.support
-      form.elements.source.value = preset.source
+      formElement.elements.incident.value = preset.incident
+      formElement.elements.location.value = preset.location
+      formElement.elements.support.value = preset.support
+      formElement.elements.source.value = preset.source
     })
   })
 }
@@ -770,41 +840,55 @@ function handleSubmit(event) {
       issueType: 'Waiting for input',
       urgency: 'Waiting for input',
       confidence: 0,
+      source: 'Waiting for input',
+      extractionFields: buildExtractionFields('', 'Waiting for input', 'Waiting for input', 0, 'Waiting for input', 'Waiting for input', 'Waiting for input'),
       match: { name: 'Waiting', score: 0 },
     }
     render()
     return
   }
 
-  if (isDuplicateReport(incident)) {
+  const duplicate = findDuplicateReport(incident, location)
+  if (duplicate) {
     state.lastAnalysis = {
       title: 'Duplicate detected',
-      reason: 'The similarity check found an overlapping report, so the dashboard flagged it instead of adding another entry.',
-      issueType: 'Duplicate report',
+      reason: `This report appears similar to ${duplicate.id}, so it was flagged for manual review instead of being added twice.`,
+      issueType: duplicate.issueType,
       urgency: 'Review',
-      confidence: 94,
+      confidence: 92,
+      source: source || 'Submitted through intake form',
+      extractionFields: buildExtractionFields(
+        incident,
+        location || duplicate.location,
+        'Review',
+        92,
+        duplicate.issueType,
+        support || duplicate.need,
+        source || 'Submitted through intake form',
+      ),
       match: { name: 'Manual review', score: 0 },
     }
     render()
     return
   }
 
-  const extracted = extractFromText(incident, location)
+  const extracted = extractFromText(incident, location, support, source)
   const newReport = {
     id: createReportId(),
+    rawText: incident,
     title: extracted.title,
     location: extracted.location,
     issueType: extracted.issueType,
     urgency: extracted.urgency,
     score: extracted.score,
     summary: extracted.summary,
-    need: support || extracted.need,
+    need: extracted.need,
     status: extracted.status,
     confidence: extracted.confidence,
     reason: extracted.reason,
-    source: source || 'Submitted through intake form',
+    source: extracted.source,
     match: extracted.match,
-    extractionFields: extracted.extractedFields,
+    extractionFields: extracted.extractionFields,
   }
 
   state.reports = [newReport, ...state.reports]
@@ -812,527 +896,6 @@ function handleSubmit(event) {
 
   render()
   event.currentTarget.reset()
-}
-
-function extractFromText(text, locationInput) {
-  const normalized = text.toLowerCase()
-  const matchedRule = urgencyRules.find((rule) => rule.terms.some((term) => normalized.includes(term))) || urgencyRules[urgencyRules.length - 1]
-  const templateKey = matchedRule.label === 'Water access'
-    ? 'water'
-    : matchedRule.label === 'Flood relief'
-      ? 'flood'
-      : matchedRule.label === 'Medical support'
-        ? 'medical'
-        : matchedRule.label === 'Food support'
-          ? 'food'
-          : matchedRule.label === 'Education support'
-            ? 'education'
-            : 'default'
-
-  const location = locationInput?.trim()
-    ? formatLocation(locationInput)
-    : formatLocation(locationAliases.find((alias) => normalized.includes(alias)) || 'Community Zone')
-
-  const confidence = Math.min(99, 62 + matchedRule.baseScore + Math.min(12, normalized.split(/\s+/).filter(Boolean).length % 11))
-  const urgencyBoost = normalized.includes('immediately') || normalized.includes('today') || normalized.includes('urgent')
-    ? 10
-    : normalized.includes('soon') || normalized.includes('help')
-      ? 4
-      : 0
-
-  const score = Math.min(99, matchedRule.baseScore + urgencyBoost + Math.min(30, confidence - 60))
-  const status = matchedRule.urgency === 'Critical'
-    ? 'Needs immediate attention'
-    : matchedRule.urgency === 'High'
-      ? 'Assign next available team'
-      : 'Queue for review'
-
-  const issueType = reportTemplates[templateKey].issueType
-  const reason = `${matchedRule.label} signals detected in the report, with ${matchedRule.urgency.toLowerCase()} urgency cues and a ${confidence}% extraction confidence.`
-
-  return {
-    title: reportTemplates[templateKey].title,
-    location,
-    issueType,
-    urgency: matchedRule.urgency,
-    score,
-    summary: summarizeText(text),
-    need: reportTemplates[templateKey].need,
-    status,
-    confidence,
-    reason,
-    match: recommendVolunteer(location, templateKey, matchedRule.urgency),
-    extractedFields: buildExtractionFields(text, location, matchedRule.urgency, confidence, issueType),
-  }
-}
-
-function recommendVolunteer(location, templateKey, urgency) {
-  const targetSkills = {
-    water: ['Logistics', 'Crowd coordination'],
-    flood: ['Procurement', 'Supply handling'],
-    medical: ['Medical support', 'Registration'],
-    food: ['Procurement', 'Crowd coordination'],
-    education: ['Registration', 'Field coordination'],
-    default: ['Field coordination', 'Rapid response'],
-  }
-
-  const expectedSkills = targetSkills[templateKey] || targetSkills.default
-
-  const scoreMap = volunteers.map((volunteer) => {
-    const skillHits = volunteer.skills.filter((skill) => expectedSkills.some((expected) => expected.toLowerCase() === skill.toLowerCase())).length
-    const locationMatch = volunteer.location.toLowerCase() === location.toLowerCase() ? 14 : 0
-    const urgencyBonus = urgency === 'Critical' ? 5 : urgency === 'High' ? 3 : 0
-    const score = Math.min(99, 66 + skillHits * 14 + locationMatch + urgencyBonus)
-
-    return {
-      ...volunteer,
-      score,
-      reason: `${volunteer.skills.join(', ')} with ${locationMatch ? 'same-location' : 'broader-area'} coverage.`,
-    }
-  })
-
-  return scoreMap.sort((left, right) => right.score - left.score)[0]
-}
-
-function summarizeCounts(reports) {
-  const urgentCount = reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length
-  const resolvedCount = Math.max(137, Math.round(reports.length * 0.55))
-
-  return {
-    triaged: reports.length,
-    urgent: urgentCount,
-    activeVolunteers: volunteers.length,
-    resolved: resolvedCount,
-  }
-}
-
-function normalizeFormValue(formData, key) {
-  return String(formData.get(key) || '').trim()
-}
-
-function isDuplicateReport(text) {
-  const normalized = text.toLowerCase().replace(/\s+/g, ' ')
-  return state.reports.some((report) => report.summary.toLowerCase().includes(normalized.slice(0, 24)))
-}
-
-function render() {
-  const counts = summarizeCounts(state.reports)
-  const latest = state.lastAnalysis
-
-  root.innerHTML = `
-    <div class="app-shell">
-      <aside class="sidebar">
-        <div>
-          <div class="brand-mark">CT</div>
-          <h1>CommunityTriage</h1>
-          <p>AI-assisted triage for urgent community needs.</p>
-        </div>
-
-        <nav>
-          ${navItems
-            .map((item, index) => `
-              <a href="#${item.toLowerCase()}" class="${index === 0 ? 'active' : ''}">${item}</a>
-            `)
-            .join('')}
-        </nav>
-
-        <div class="sidebar-card">
-          <span>Current focus</span>
-          <strong>${sanitize(state.reports[0].title)}</strong>
-          <small>${sanitize(state.reports[0].reason)}</small>
-        </div>
-      </aside>
-
-      <main class="content">
-        <section class="hero" id="overview">
-          <div>
-            <span class="eyebrow">Phase 2 workflow</span>
-            <h2>Turn scattered reports into clear action.</h2>
-            <p>
-              Submit a community report, let the app extract structured details, then rank and assign the best volunteer response.
-            </p>
-          </div>
-
-          <div class="hero-panel">
-            <div>
-              <span>AI input</span>
-              <strong>Text, CSV, and field notes</strong>
-            </div>
-            <div>
-              <span>Output</span>
-              <strong>Priority-ranked action list</strong>
-            </div>
-            <div>
-              <span>Google AI</span>
-              <strong>Gemini-powered extraction</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="metrics" aria-label="dashboard metrics">
-          <article class="metric-card">
-            <span>Reports triaged</span>
-            <strong>${counts.triaged}</strong>
-            <small>Incoming reports processed in the current working set.</small>
-          </article>
-          <article class="metric-card">
-            <span>Urgent cases</span>
-            <strong>${counts.urgent}</strong>
-            <small>Critical or high-priority cases waiting on response.</small>
-          </article>
-          <article class="metric-card">
-            <span>Active volunteers</span>
-            <strong>${counts.activeVolunteers}</strong>
-            <small>Available response profiles for matching.</small>
-          </article>
-          <article class="metric-card">
-            <span>Resolved cases</span>
-            <strong>${counts.resolved}</strong>
-            <small>Projected closed cases based on current triage output.</small>
-          </article>
-        </section>
-
-        <section class="grid-layout">
-          <article class="panel" id="cases">
-            <div class="panel-header">
-              <div>
-                <span>Urgent cases</span>
-                <h3>AI-ranked community reports</h3>
-              </div>
-              <button type="button" data-scroll-target="#intake">New report</button>
-            </div>
-
-            <div class="report-list">
-              ${state.reports
-                .map(
-                  (report) => `
-                    <article class="report-card">
-                      <div class="report-topline">
-                        <strong>${sanitize(report.title)}</strong>
-                        <span>${sanitize(report.urgency)}</span>
-                      </div>
-                      <p>${sanitize(report.summary)}</p>
-                      <div class="report-meta">
-                        <span>${sanitize(report.location)}</span>
-                        <span>${sanitize(report.id)}</span>
-                        <span>${report.score}% priority</span>
-                        <span>${report.confidence}% confidence</span>
-                      </div>
-                      <div class="report-footer">
-                        <small>${sanitize(report.need)}</small>
-                        <em>${sanitize(report.status)}</em>
-                      </div>
-                    </article>
-                  `,
-                )
-                .join('')}
-            </div>
-          </article>
-
-          <aside class="panel" id="volunteers">
-            <div class="panel-header">
-              <div>
-                <span>Volunteer match</span>
-                <h3>Best-fit assignments</h3>
-              </div>
-            </div>
-
-            <div class="volunteer-list">
-              ${volunteers
-                .map(
-                  (volunteer) => `
-                    <article class="volunteer-card">
-                      <div>
-                        <strong>${sanitize(volunteer.name)}</strong>
-                        <span>${volunteer.score}% match</span>
-                      </div>
-                      <p>${sanitize(volunteer.skills.join(' • '))}</p>
-                      <small>${sanitize(volunteer.location)} · Available ${sanitize(volunteer.availability)}</small>
-                    </article>
-                  `,
-                )
-                .join('')}
-            </div>
-
-            <div class="sidebar-card secondary">
-              <span>Explainability</span>
-              <strong>Why these matches?</strong>
-              <small>
-                The system compares location, skill tags, and availability to make the recommendation transparent.
-              </small>
-            </div>
-          </aside>
-        </section>
-
-        <section class="panel" id="intake">
-          <div class="panel-header">
-            <div>
-              <span>Report intake</span>
-              <h3>Submit a new incident for AI triage</h3>
-            </div>
-          </div>
-
-          <form class="intake-form" id="report-form">
-            <label>
-              <span>Free-text incident report</span>
-              <textarea name="incident" rows="5" placeholder="Example: Families in South District need clean water immediately. Two hand pumps are broken and volunteers are required for distribution."></textarea>
-            </label>
-
-            <div class="form-grid">
-              <label>
-                <span>Location hint</span>
-                <input name="location" type="text" placeholder="South District" />
-              </label>
-
-              <label>
-                <span>Expected support</span>
-                <input name="support" type="text" placeholder="Water, food, medical, logistics" />
-              </label>
-            </div>
-
-            <label>
-              <span>Source tag</span>
-              <input name="source" type="text" placeholder="Field note, survey, WhatsApp forward, PDF" />
-            </label>
-
-            <div class="form-actions">
-              <button type="submit">Analyze report</button>
-              <small>Extracts structured data, assigns a priority score, and recommends the best volunteer match.</small>
-            </div>
-          </form>
-
-          <div class="intake-results">
-            <div class="result-card" id="result-summary">
-              <span>Latest triage result</span>
-              <strong>${latest ? sanitize(latest.title) : 'No new report yet'}</strong>
-              <p>${latest ? sanitize(latest.reason) : 'Submit an incident to see structured extraction, scoring, and matching.'}</p>
-            </div>
-
-            <div class="result-grid" id="result-fields">
-              <div>
-                <strong>Issue type</strong>
-                <p>${latest ? sanitize(latest.issueType) : 'Waiting for input'}</p>
-              </div>
-              <div>
-                <strong>Urgency</strong>
-                <p>${latest ? sanitize(latest.urgency) : 'Waiting for input'}</p>
-              </div>
-              <div>
-                <strong>Confidence</strong>
-                <p>${latest ? `${latest.confidence}%` : 'Waiting for input'}</p>
-              </div>
-              <div>
-                <strong>Matched volunteer</strong>
-                <p>${latest ? `${sanitize(latest.match.name)} (${latest.match.score}% match)` : 'Waiting for input'}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel" id="insights">
-          <div class="panel-header">
-            <div>
-              <span>Extraction preview</span>
-              <h3>Structured AI interpretation</h3>
-            </div>
-          </div>
-
-          <div class="insight-grid">
-            <div>
-              <strong>Input model</strong>
-              <p>Report form, text ingestion, and batch-ready data structure.</p>
-            </div>
-            <div>
-              <strong>Decision model</strong>
-              <p>Priority scoring and volunteer matching ready for AI integration.</p>
-            </div>
-            <div>
-              <strong>Dashboard shell</strong>
-              <p>Sidebar navigation, metric cards, and distinct data panels.</p>
-            </div>
-            <div>
-              <strong>Demo readiness</strong>
-              <p>Seeded data that can be shown immediately in a pitch video.</p>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-  `
-
-  const form = document.getElementById('report-form')
-  form.addEventListener('submit', handleSubmit)
-
-  document.querySelectorAll('[data-scroll-target]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const selector = button.getAttribute('data-scroll-target')
-      const target = document.querySelector(selector)
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }
-    })
-  })
-}
-
-function handleSubmit(event) {
-  event.preventDefault()
-
-  const formData = new FormData(event.currentTarget)
-  const incident = normalizeFormValue(formData, 'incident')
-  const location = normalizeFormValue(formData, 'location')
-  const support = normalizeFormValue(formData, 'support')
-  const source = normalizeFormValue(formData, 'source')
-
-  if (!incident) {
-    state.lastAnalysis = {
-      title: 'Missing report text',
-      reason: 'Please enter a report before running the triage analysis.',
-      issueType: 'Waiting for input',
-      urgency: 'Waiting for input',
-      confidence: 0,
-      match: { name: 'Waiting', score: 0 },
-    }
-    render()
-    return
-  }
-
-  if (isDuplicateReport(incident)) {
-    state.lastAnalysis = {
-      title: 'Duplicate detected',
-      reason: 'The similarity check found an overlapping report, so the dashboard flagged it instead of adding another entry.',
-      issueType: 'Duplicate report',
-      urgency: 'Review',
-      confidence: 94,
-      match: { name: 'Manual review', score: 0 },
-    }
-    render()
-    return
-  }
-
-  const extracted = extractFromText(incident, location)
-  const newReport = {
-    id: createReportId(),
-    title: extracted.title,
-    location: extracted.location,
-    issueType: extracted.issueType,
-    urgency: extracted.urgency,
-    score: extracted.score,
-    summary: extracted.summary,
-    need: support || extracted.need,
-    status: extracted.status,
-    confidence: extracted.confidence,
-    reason: extracted.reason,
-    source: source || 'Submitted through intake form',
-    match: extracted.match,
-    extractionFields: extracted.extractedFields,
-  }
-
-  state.reports = [newReport, ...state.reports]
-  state.lastAnalysis = newReport
-
-  render()
-  event.currentTarget.reset()
-}
-
-function extractFromText(text, locationInput) {
-  const normalized = text.toLowerCase()
-  const matchedRule = urgencyRules.find((rule) => rule.terms.some((term) => normalized.includes(term))) || urgencyRules[urgencyRules.length - 1]
-  const templateKey = matchedRule.label === 'Water access'
-    ? 'water'
-    : matchedRule.label === 'Flood relief'
-      ? 'flood'
-      : matchedRule.label === 'Medical support'
-        ? 'medical'
-        : matchedRule.label === 'Food support'
-          ? 'food'
-          : matchedRule.label === 'Education support'
-            ? 'education'
-            : 'default'
-
-  const location = locationInput?.trim()
-    ? formatLocation(locationInput)
-    : formatLocation(locationAliases.find((alias) => normalized.includes(alias)) || 'Community Zone')
-
-  const confidence = Math.min(99, 62 + matchedRule.baseScore + Math.min(12, normalized.split(/\s+/).filter(Boolean).length % 11))
-  const urgencyBoost = normalized.includes('immediately') || normalized.includes('today') || normalized.includes('urgent')
-    ? 10
-    : normalized.includes('soon') || normalized.includes('help')
-      ? 4
-      : 0
-
-  const score = Math.min(99, matchedRule.baseScore + urgencyBoost + Math.min(30, confidence - 60))
-  const status = matchedRule.urgency === 'Critical'
-    ? 'Needs immediate attention'
-    : matchedRule.urgency === 'High'
-      ? 'Assign next available team'
-      : 'Queue for review'
-
-  const issueType = reportTemplates[templateKey].issueType
-  const reason = `${matchedRule.label} signals detected in the report, with ${matchedRule.urgency.toLowerCase()} urgency cues and a ${confidence}% extraction confidence.`
-
-  return {
-    title: reportTemplates[templateKey].title,
-    location,
-    issueType,
-    urgency: matchedRule.urgency,
-    score,
-    summary: summarizeText(text),
-    need: reportTemplates[templateKey].need,
-    status,
-    confidence,
-    reason,
-    match: recommendVolunteer(location, templateKey, matchedRule.urgency),
-    extractedFields: buildExtractionFields(text, location, matchedRule.urgency, confidence, issueType),
-  }
-}
-
-function recommendVolunteer(location, templateKey, urgency) {
-  const targetSkills = {
-    water: ['Logistics', 'Crowd coordination'],
-    flood: ['Procurement', 'Supply handling'],
-    medical: ['Medical support', 'Registration'],
-    food: ['Procurement', 'Crowd coordination'],
-    education: ['Registration', 'Field coordination'],
-    default: ['Field coordination', 'Rapid response'],
-  }
-
-  const expectedSkills = targetSkills[templateKey] || targetSkills.default
-
-  const scoreMap = volunteers.map((volunteer) => {
-    const skillHits = volunteer.skills.filter((skill) => expectedSkills.some((expected) => expected.toLowerCase() === skill.toLowerCase())).length
-    const locationMatch = volunteer.location.toLowerCase() === location.toLowerCase() ? 14 : 0
-    const urgencyBonus = urgency === 'Critical' ? 5 : urgency === 'High' ? 3 : 0
-    const score = Math.min(99, 66 + skillHits * 14 + locationMatch + urgencyBonus)
-
-    return {
-      ...volunteer,
-      score,
-      reason: `${volunteer.skills.join(', ')} with ${locationMatch ? 'same-location' : 'broader-area'} coverage.`,
-    }
-  })
-
-  return scoreMap.sort((left, right) => right.score - left.score)[0]
-}
-
-function summarizeCounts(reports) {
-  const urgentCount = reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length
-  const resolvedCount = Math.max(137, Math.round(reports.length * 0.55))
-
-  return {
-    triaged: reports.length,
-    urgent: urgentCount,
-    activeVolunteers: volunteers.length,
-    resolved: resolvedCount,
-  }
-}
-
-function normalizeFormValue(formData, key) {
-  return String(formData.get(key) || '').trim()
-}
-
-function isDuplicateReport(text) {
-  const normalized = text.toLowerCase().replace(/\s+/g, ' ')
-  return state.reports.some((report) => report.summary.toLowerCase().includes(normalized.slice(0, 24)))
 }
 
 render()

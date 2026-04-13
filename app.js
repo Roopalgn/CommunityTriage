@@ -190,14 +190,26 @@ function getTemplateKey(label) {
   return map[label] || 'default'
 }
 
-function buildExtractionFields(text, location, urgency, confidence, issueType, support, source) {
+function buildExtractionFields({
+  text,
+  location,
+  urgency,
+  confidence,
+  issueType,
+  support,
+  source,
+  affectedGroup = 'Community members',
+  provider = 'Rule-based',
+}) {
   return [
     { label: 'Issue type', value: issueType },
     { label: 'Location', value: location },
     { label: 'Urgency', value: urgency },
     { label: 'Confidence', value: `${confidence}%` },
+    { label: 'Affected group', value: affectedGroup },
     { label: 'Expected support', value: support },
     { label: 'Source', value: source },
+    { label: 'Analysis provider', value: provider },
     { label: 'Source summary', value: summarizeText(text) },
   ]
 }
@@ -206,16 +218,112 @@ function hydrateSeedReport(report) {
   return {
     ...report,
     rawText: report.summary,
-    extractionFields: buildExtractionFields(
-      report.summary,
-      report.location,
-      report.urgency,
-      report.confidence,
-      report.issueType,
-      report.need,
-      report.source,
-    ),
+    affectedGroup: 'Local households',
+    provider: 'Rule-based seed data',
+    extractionFields: buildExtractionFields({
+      text: report.summary,
+      location: report.location,
+      urgency: report.urgency,
+      confidence: report.confidence,
+      issueType: report.issueType,
+      support: report.need,
+      source: report.source,
+      affectedGroup: 'Local households',
+      provider: 'Rule-based seed data',
+    }),
   }
+}
+
+function normalizeUrgency(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+
+  if (normalized === 'critical') {
+    return 'Critical'
+  }
+
+  if (normalized === 'high') {
+    return 'High'
+  }
+
+  return 'Medium'
+}
+
+function clampNumber(value, min, max, fallback) {
+  const numericValue = Number(value)
+
+  if (!Number.isFinite(numericValue)) {
+    return fallback
+  }
+
+  return Math.min(max, Math.max(min, Math.round(numericValue)))
+}
+
+function getTemplateKeyFromIssueType(issueType, incident) {
+  const normalizedIssueType = String(issueType || '').toLowerCase()
+
+  if (normalizedIssueType.includes('water')) {
+    return 'water'
+  }
+
+  if (normalizedIssueType.includes('flood')) {
+    return 'flood'
+  }
+
+  if (normalizedIssueType.includes('medical') || normalizedIssueType.includes('health')) {
+    return 'medical'
+  }
+
+  if (normalizedIssueType.includes('food') || normalizedIssueType.includes('ration')) {
+    return 'food'
+  }
+
+  if (normalizedIssueType.includes('education') || normalizedIssueType.includes('school')) {
+    return 'education'
+  }
+
+  const normalizedIncident = String(incident || '').toLowerCase()
+
+  if (normalizedIncident.includes('water') || normalizedIncident.includes('pump')) {
+    return 'water'
+  }
+
+  if (normalizedIncident.includes('flood') || normalizedIncident.includes('blanket')) {
+    return 'flood'
+  }
+
+  if (normalizedIncident.includes('medical') || normalizedIncident.includes('patient')) {
+    return 'medical'
+  }
+
+  if (normalizedIncident.includes('food') || normalizedIncident.includes('ration')) {
+    return 'food'
+  }
+
+  return 'default'
+}
+
+function getStatusFromUrgency(urgency) {
+  if (urgency === 'Critical') {
+    return 'Needs immediate attention'
+  }
+
+  if (urgency === 'High') {
+    return 'Assign next available team'
+  }
+
+  return 'Queue for review'
+}
+
+function getUrgencyScore(urgency) {
+  if (urgency === 'Critical') {
+    return 96
+  }
+
+  if (urgency === 'High') {
+    return 84
+  }
+
+  return 68
 }
 
 function availabilityBonus(availability) {
@@ -293,6 +401,11 @@ function extractFromText(text, locationInput, supportInput, sourceInput) {
         : 'Queue for review'
   const reason = `${matchedRule.label} signals detected in the report, with ${matchedRule.urgency.toLowerCase()} urgency cues and ${confidence}% extraction confidence from the current rule-based engine.`
   const source = sourceInput || 'Submitted through intake form'
+  const affectedGroup = normalized.includes('children') || normalized.includes('elderly')
+    ? 'Children and elderly residents'
+    : normalized.includes('families')
+      ? 'Local families'
+      : 'Community members'
 
   return {
     title: reportTemplates[templateKey].title,
@@ -306,8 +419,83 @@ function extractFromText(text, locationInput, supportInput, sourceInput) {
     confidence,
     reason,
     source,
+    provider: 'Rule-based fallback',
+    affectedGroup,
     match: recommendVolunteer(location, templateKey, matchedRule.urgency),
-    extractionFields: buildExtractionFields(text, location, matchedRule.urgency, confidence, issueType, need, source),
+    extractionFields: buildExtractionFields({
+      text,
+      location,
+      urgency: matchedRule.urgency,
+      confidence,
+      issueType,
+      support: need,
+      source,
+      affectedGroup,
+      provider: 'Rule-based fallback',
+    }),
+  }
+}
+
+function normalizeRequiredResources(value, fallback) {
+  if (Array.isArray(value)) {
+    const cleaned = value.map((entry) => String(entry).trim()).filter(Boolean)
+    if (cleaned.length) {
+      return cleaned.join(', ')
+    }
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim()
+  }
+
+  return fallback
+}
+
+function buildReportFromBackend({ incident, location, support, source, analysis, model }) {
+  const fallback = extractFromText(incident, location, support, source)
+  const issueType = String(analysis.issueType || fallback.issueType).trim()
+  const templateKey = getTemplateKeyFromIssueType(issueType, incident)
+  const resolvedLocation = formatLocation(analysis.location || fallback.location)
+  const urgency = normalizeUrgency(analysis.urgency || fallback.urgency)
+  const confidence = clampNumber(analysis.confidence, 45, 99, fallback.confidence)
+  const need = normalizeRequiredResources(analysis.requiredResources, support || fallback.need)
+  const affectedGroup = String(analysis.affectedGroup || fallback.affectedGroup || 'Community members').trim()
+  const providerLabel = model ? `Gemini (${model})` : 'Gemini'
+  const summary = summarizeText(analysis.summary || incident)
+  const reason = String(analysis.justification || fallback.reason).trim()
+  const score = Math.min(
+    99,
+    Math.round(getUrgencyScore(urgency) * 0.55 + confidence * 0.35 + fallback.score * 0.1),
+  )
+
+  return {
+    id: createReportId(),
+    rawText: incident,
+    title: reportTemplates[templateKey].title,
+    location: resolvedLocation,
+    issueType,
+    urgency,
+    score,
+    summary,
+    need,
+    status: getStatusFromUrgency(urgency),
+    confidence,
+    reason,
+    source: source || 'Submitted through intake form',
+    provider: providerLabel,
+    affectedGroup,
+    match: recommendVolunteer(resolvedLocation, templateKey, urgency),
+    extractionFields: buildExtractionFields({
+      text: incident,
+      location: resolvedLocation,
+      urgency,
+      confidence,
+      issueType,
+      support: need,
+      source: source || 'Submitted through intake form',
+      affectedGroup,
+      provider: providerLabel,
+    }),
   }
 }
 
@@ -411,6 +599,15 @@ const state = {
   reports: rawSeedReports.map(hydrateSeedReport),
   nextId: 1045,
   lastAnalysis: null,
+  backend: {
+    available: false,
+    geminiConfigured: false,
+    model: null,
+  },
+  analysisStatus: {
+    state: 'idle',
+    message: '',
+  },
   filters: {
     search: '',
     urgency: 'All',
@@ -427,6 +624,15 @@ function render() {
   const filteredReports = getFilteredReports()
   const analytics = buildAnalytics(filteredReports)
   const locations = ['All', ...new Set(state.reports.map((report) => report.location))]
+  const activeEngineLabel = state.backend.geminiConfigured ? 'Gemini-assisted extraction' : 'Rule-based fallback'
+  const backendLabel = state.backend.available ? 'Node API online' : 'Static fallback mode'
+  const googleAiLabel = state.backend.geminiConfigured
+    ? state.backend.model
+    : 'Add GEMINI_API_KEY to enable Gemini'
+  const statusMarkup = state.analysisStatus.message
+    ? `<div class="status-banner ${state.analysisStatus.state}">${sanitize(state.analysisStatus.message)}</div>`
+    : ''
+  const analyzeButtonText = state.analysisStatus.state === 'loading' ? 'Analyzing with Gemini...' : 'Analyze report'
 
   root.innerHTML = `
     <div class="app-shell">
@@ -468,15 +674,15 @@ function render() {
           <div class="hero-panel">
             <div>
               <span>Current engine</span>
-              <strong>Rule-based extraction</strong>
+              <strong>${sanitize(activeEngineLabel)}</strong>
             </div>
             <div>
-              <span>Output</span>
-              <strong>Priority-ranked action list</strong>
+              <span>Backend</span>
+              <strong>${sanitize(backendLabel)}</strong>
             </div>
             <div>
-              <span>Google AI next</span>
-              <strong>Gemini integration in Push 6</strong>
+              <span>Google AI</span>
+              <strong>${sanitize(googleAiLabel)}</strong>
             </div>
           </div>
         </section>
@@ -680,10 +886,12 @@ function render() {
             </label>
 
             <div class="form-actions">
-              <button type="submit">Analyze report</button>
-              <small>Push 5 uses a transparent rule-based engine so the workflow stays stable while Gemini integration is added next.</small>
+              <button type="submit" id="analyze-button" ${state.analysisStatus.state === 'loading' ? 'disabled' : ''}>${sanitize(analyzeButtonText)}</button>
+              <small>Reports are sent to the backend for Gemini analysis when configured, with rule-based fallback if the API is unavailable.</small>
             </div>
           </form>
+
+          ${statusMarkup}
 
           <div class="intake-results">
             <div class="result-card">
@@ -709,6 +917,14 @@ function render() {
                 <strong>Matched volunteer</strong>
                 <p>${latest ? `${sanitize(latest.match.name)} (${latest.match.score}% match)` : 'Waiting for input'}</p>
               </div>
+              <div>
+                <strong>Provider</strong>
+                <p>${latest ? sanitize(latest.provider || 'Rule-based fallback') : 'Waiting for input'}</p>
+              </div>
+              <div>
+                <strong>Affected group</strong>
+                <p>${latest ? sanitize(latest.affectedGroup || 'Community members') : 'Waiting for input'}</p>
+              </div>
             </div>
           </div>
 
@@ -716,7 +932,7 @@ function render() {
             <div class="panel-header">
               <div>
                 <span>Extraction trace</span>
-                <h3>What the current engine used</h3>
+                <h3>What the active analysis path used</h3>
               </div>
             </div>
 
@@ -726,8 +942,10 @@ function render() {
                 { label: 'Location', value: 'Waiting for input' },
                 { label: 'Urgency', value: 'Waiting for input' },
                 { label: 'Confidence', value: 'Waiting for input' },
+                { label: 'Affected group', value: 'Waiting for input' },
                 { label: 'Expected support', value: 'Waiting for input' },
                 { label: 'Source', value: 'Waiting for input' },
+                { label: 'Analysis provider', value: 'Waiting for input' },
                 { label: 'Source summary', value: 'Submit a report to see the trace.' },
               ])
                 .map(
@@ -758,15 +976,15 @@ function render() {
             </div>
             <div>
               <strong>Current prototype</strong>
-              <p>This build shows reliable intake, explainable scoring, hotspot signals, and volunteer matching in one flow.</p>
+              <p>This build shows reliable intake, Gemini-backed analysis when configured, and explicit fallback when the API is unavailable.</p>
             </div>
             <div>
               <strong>Trust layer</strong>
               <p>The dashboard exposes confidence, rationale, and source context so decisions stay explainable.</p>
             </div>
             <div>
-              <strong>Next step</strong>
-              <p>Push 6 upgrades the extraction path to Gemini while preserving the same visible workflow.</p>
+              <strong>Delivery focus</strong>
+              <p>The same user flow now works through a Node backend, so the Google AI story is ready for live demos once the API key is added.</p>
             </div>
           </div>
         </section>
@@ -824,7 +1042,7 @@ function render() {
   })
 }
 
-function handleSubmit(event) {
+async function handleSubmit(event) {
   event.preventDefault()
 
   const formData = new FormData(event.currentTarget)
@@ -841,8 +1059,24 @@ function handleSubmit(event) {
       urgency: 'Waiting for input',
       confidence: 0,
       source: 'Waiting for input',
-      extractionFields: buildExtractionFields('', 'Waiting for input', 'Waiting for input', 0, 'Waiting for input', 'Waiting for input', 'Waiting for input'),
+      provider: 'Waiting for input',
+      affectedGroup: 'Waiting for input',
+      extractionFields: buildExtractionFields({
+        text: '',
+        location: 'Waiting for input',
+        urgency: 'Waiting for input',
+        confidence: 0,
+        issueType: 'Waiting for input',
+        support: 'Waiting for input',
+        source: 'Waiting for input',
+        affectedGroup: 'Waiting for input',
+        provider: 'Waiting for input',
+      }),
       match: { name: 'Waiting', score: 0 },
+    }
+    state.analysisStatus = {
+      state: 'error',
+      message: 'Enter a report before running analysis.',
     }
     render()
     return
@@ -857,38 +1091,101 @@ function handleSubmit(event) {
       urgency: 'Review',
       confidence: 92,
       source: source || 'Submitted through intake form',
-      extractionFields: buildExtractionFields(
-        incident,
-        location || duplicate.location,
-        'Review',
-        92,
-        duplicate.issueType,
-        support || duplicate.need,
-        source || 'Submitted through intake form',
-      ),
+      provider: 'Duplicate review',
+      affectedGroup: duplicate.affectedGroup || 'Community members',
+      extractionFields: buildExtractionFields({
+        text: incident,
+        location: location || duplicate.location,
+        urgency: 'Review',
+        confidence: 92,
+        issueType: duplicate.issueType,
+        support: support || duplicate.need,
+        source: source || 'Submitted through intake form',
+        affectedGroup: duplicate.affectedGroup || 'Community members',
+        provider: 'Duplicate review',
+      }),
       match: { name: 'Manual review', score: 0 },
+    }
+    state.analysisStatus = {
+      state: 'fallback',
+      message: `Potential duplicate flagged against ${duplicate.id}.`,
     }
     render()
     return
   }
 
-  const extracted = extractFromText(incident, location, support, source)
-  const newReport = {
-    id: createReportId(),
-    rawText: incident,
-    title: extracted.title,
-    location: extracted.location,
-    issueType: extracted.issueType,
-    urgency: extracted.urgency,
-    score: extracted.score,
-    summary: extracted.summary,
-    need: extracted.need,
-    status: extracted.status,
-    confidence: extracted.confidence,
-    reason: extracted.reason,
-    source: extracted.source,
-    match: extracted.match,
-    extractionFields: extracted.extractionFields,
+  state.analysisStatus = {
+    state: 'loading',
+    message: state.backend.geminiConfigured
+      ? 'Analyzing report with Gemini...'
+      : 'Trying backend analysis, then falling back locally if needed...',
+  }
+  render()
+
+  let newReport
+
+  try {
+    const response = await fetch('/api/analyze-report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        incident,
+        locationHint: location,
+        supportHint: support,
+        source,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}))
+      throw new Error(errorPayload.error || 'Backend analysis failed.')
+    }
+
+    const payload = await response.json()
+    newReport = buildReportFromBackend({
+      incident,
+      location,
+      support,
+      source,
+      analysis: payload.analysis || {},
+      model: payload.model,
+    })
+
+    state.backend.available = true
+    state.backend.geminiConfigured = true
+    state.backend.model = payload.model || state.backend.model || 'gemini-2.5-flash'
+    state.analysisStatus = {
+      state: 'success',
+      message: `Gemini analysis completed using ${payload.model || 'the configured model'}.`,
+    }
+  } catch (error) {
+    const extracted = extractFromText(incident, location, support, source)
+    newReport = {
+      id: createReportId(),
+      rawText: incident,
+      title: extracted.title,
+      location: extracted.location,
+      issueType: extracted.issueType,
+      urgency: extracted.urgency,
+      score: extracted.score,
+      summary: extracted.summary,
+      need: extracted.need,
+      status: extracted.status,
+      confidence: extracted.confidence,
+      reason: extracted.reason,
+      source: extracted.source,
+      provider: extracted.provider,
+      affectedGroup: extracted.affectedGroup,
+      match: extracted.match,
+      extractionFields: extracted.extractionFields,
+    }
+
+    state.analysisStatus = {
+      state: 'fallback',
+      message: `${error.message} Using the local fallback engine for this demo run.`,
+    }
   }
 
   state.reports = [newReport, ...state.reports]
@@ -898,4 +1195,26 @@ function handleSubmit(event) {
   event.currentTarget.reset()
 }
 
+async function syncBackendStatus() {
+  try {
+    const response = await fetch('/api/health')
+
+    if (!response.ok) {
+      throw new Error('Backend health check failed.')
+    }
+
+    const payload = await response.json()
+    state.backend.available = true
+    state.backend.geminiConfigured = Boolean(payload.geminiConfigured)
+    state.backend.model = payload.model || null
+  } catch (error) {
+    state.backend.available = false
+    state.backend.geminiConfigured = false
+    state.backend.model = null
+  }
+
+  render()
+}
+
 render()
+syncBackendStatus()

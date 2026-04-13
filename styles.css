@@ -43,6 +43,13 @@ button:hover {
   box-shadow: 0 10px 24px rgba(255, 163, 77, 0.22);
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+  transform: none;
+  box-shadow: none;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -482,6 +489,33 @@ button:hover {
 .form-actions small {
   max-width: 50ch;
   color: rgba(238, 242, 255, 0.72);
+}
+
+.status-banner {
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.92rem;
+}
+
+.status-banner.success {
+  background: rgba(66, 214, 151, 0.12);
+  color: #bbffd8;
+}
+
+.status-banner.loading {
+  background: rgba(255, 183, 77, 0.12);
+  color: #ffe2b8;
+}
+
+.status-banner.fallback {
+  background: rgba(96, 165, 250, 0.14);
+  color: #d8e9ff;
+}
+
+.status-banner.error {
+  background: rgba(255, 120, 120, 0.14);
+  color: #ffd1d1;
 }
 
 .intake-results {

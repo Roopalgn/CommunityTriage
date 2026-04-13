@@ -1,0 +1,10 @@
+{
+  "name": "community-triage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CommunityTriage demo with a minimal Node backend for Gemini-powered report analysis.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}

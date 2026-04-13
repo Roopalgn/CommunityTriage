@@ -34,6 +34,13 @@ button {
   background: linear-gradient(135deg, #ffb74d, #ff8a65);
   color: #1b1329;
   font-weight: 800;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(255, 163, 77, 0.22);
 }
 
 .app-shell {
@@ -272,6 +279,111 @@ button {
   font-size: 0.85rem;
 }
 
+.intake-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.intake-form label {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.intake-form span {
+  font-size: 0.85rem;
+  color: rgba(238, 242, 255, 0.8);
+}
+
+.intake-form textarea,
+.intake-form input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  background: rgba(8, 12, 24, 0.8);
+  color: #eef2ff;
+  font: inherit;
+}
+
+.intake-form textarea::placeholder,
+.intake-form input::placeholder {
+  color: rgba(238, 242, 255, 0.35);
+}
+
+.intake-form textarea:focus,
+.intake-form input:focus {
+  outline: 2px solid rgba(255, 183, 77, 0.45);
+  border-color: rgba(255, 183, 77, 0.45);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.form-actions small {
+  max-width: 50ch;
+  color: rgba(238, 242, 255, 0.72);
+}
+
+.intake-results {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 1rem;
+}
+
+.result-card,
+.result-grid div {
+  border-radius: 1.1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.result-card {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.result-card span {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: #ffcc80;
+}
+
+.result-card p,
+.result-grid p {
+  margin: 0.25rem 0 0;
+  color: rgba(238, 242, 255, 0.78);
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.result-grid strong {
+  display: block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #7ef0b5;
+}
+
+.result-grid div {
+  min-height: 6rem;
+}
+
 .report-footer em {
   font-style: normal;
   color: #ffcc80;
@@ -287,7 +399,10 @@ button {
   .hero,
   .grid-layout,
   .metrics,
-  .insight-grid {
+  .insight-grid,
+  .intake-results,
+  .form-grid,
+  .result-grid {
     grid-template-columns: 1fr;
   }
 
@@ -305,5 +420,9 @@ button {
 
   .hero h2 {
     font-size: 2.25rem;
+  }
+
+  .form-actions {
+    align-items: stretch;
   }
 }

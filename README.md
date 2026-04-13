@@ -13,3 +13,11 @@ Open `index.html` directly in a browser. The project is intentionally dependency
 - Seeded volunteer data
 - Priority ranking display
 - Matching and explainability panels
+
+## Phase 2 workflow
+
+- Report intake form for free-text incident submissions
+- AI-style extraction of issue type, urgency, confidence, and location
+- Priority scoring and duplicate detection
+- Volunteer matching with transparent reasoning
+- Live re-render of the dashboard after each new report

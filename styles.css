@@ -1,0 +1,309 @@
+:root {
+  color-scheme: dark;
+  font-family: 'Inter', system-ui, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(255, 183, 77, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(36, 81, 255, 0.18), transparent 22%),
+    linear-gradient(160deg, #0b1020 0%, #11192f 52%, #0a0f1c 100%);
+  color: #eef2ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.8rem 1.1rem;
+  background: linear-gradient(135deg, #ffb74d, #ff8a65);
+  color: #1b1329;
+  font-weight: 800;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  padding: 2rem 1.4rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(5, 9, 18, 0.5);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.brand-mark {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7c4dff, #00bcd4);
+  font-weight: 900;
+  margin-bottom: 1rem;
+}
+
+.sidebar h1,
+.hero h2,
+.panel h3 {
+  margin: 0;
+}
+
+.sidebar p,
+.hero p,
+.metric-card small,
+.report-card p,
+.volunteer-card p,
+.sidebar-card small,
+.insight-grid p {
+  color: rgba(238, 242, 255, 0.75);
+  line-height: 1.5;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.sidebar nav a {
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+}
+
+.sidebar nav a.active {
+  border-color: rgba(255, 183, 77, 0.35);
+  background: rgba(255, 183, 77, 0.12);
+}
+
+.sidebar-card,
+.panel,
+.metric-card,
+.report-card,
+.volunteer-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+}
+
+.sidebar-card {
+  border-radius: 1.25rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sidebar-card span,
+.metric-card span,
+.report-topline span,
+.panel-header span,
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: #ffcc80;
+}
+
+.sidebar-card.secondary {
+  background: rgba(255, 183, 77, 0.08);
+}
+
+.content {
+  padding: 2rem;
+  display: grid;
+  gap: 1.2rem;
+}
+
+.hero,
+.grid-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1.2rem;
+}
+
+.hero {
+  align-items: stretch;
+}
+
+.hero > div:first-child,
+.panel {
+  border-radius: 1.5rem;
+  padding: 1.4rem;
+}
+
+.hero > div:first-child {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.hero h2 {
+  font-size: clamp(2rem, 4vw, 3.8rem);
+  max-width: 12ch;
+  line-height: 0.98;
+}
+
+.hero p {
+  max-width: 58ch;
+}
+
+.hero-panel {
+  border-radius: 1.5rem;
+  padding: 1.4rem;
+  background:
+    linear-gradient(180deg, rgba(124, 77, 255, 0.16), rgba(0, 188, 212, 0.08)),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 1rem;
+}
+
+.hero-panel div,
+.report-footer,
+.panel-header,
+.report-topline,
+.volunteer-card div,
+.insight-grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.hero-panel span,
+.report-card em,
+.sidebar-card strong,
+.volunteer-card span,
+.panel-header h3,
+.metric-card strong {
+  display: block;
+}
+
+.hero-panel strong,
+.metric-card strong,
+.report-card strong,
+.volunteer-card strong,
+.insight-grid strong {
+  font-size: 1rem;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.metric-card {
+  border-radius: 1.25rem;
+  padding: 1.1rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.metric-card strong {
+  font-size: 2rem;
+}
+
+.grid-layout {
+  align-items: start;
+}
+
+.panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.panel-header {
+  align-items: center;
+}
+
+.report-list,
+.volunteer-list,
+.insight-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.report-card,
+.volunteer-card,
+.insight-grid div {
+  border-radius: 1.1rem;
+  padding: 1rem;
+}
+
+.report-topline,
+.report-footer,
+.volunteer-card div {
+  align-items: center;
+}
+
+.report-topline span {
+  color: #7ef0b5;
+}
+
+.report-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  color: rgba(238, 242, 255, 0.7);
+  font-size: 0.85rem;
+}
+
+.report-footer em {
+  font-style: normal;
+  color: #ffcc80;
+  text-align: right;
+}
+
+.insight-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .app-shell,
+  .hero,
+  .grid-layout,
+  .metrics,
+  .insight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+@media (max-width: 720px) {
+  .content,
+  .sidebar {
+    padding: 1rem;
+  }
+
+  .hero h2 {
+    font-size: 2.25rem;
+  }
+}

@@ -247,6 +247,110 @@ button:hover {
   align-items: center;
 }
 
+.analytics-band {
+  display: grid;
+  gap: 1rem;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.analytics-grid div,
+.trace-item {
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.analytics-grid span,
+.trace-item span {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.7rem;
+  color: #ffcc80;
+  margin-bottom: 0.35rem;
+}
+
+.analytics-grid strong,
+.trace-item strong {
+  display: block;
+  font-size: 1.1rem;
+}
+
+.analytics-grid small,
+.trace-item {
+  color: rgba(238, 242, 255, 0.75);
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.filter-bar input,
+.filter-bar select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.95rem;
+  padding: 0.85rem 0.95rem;
+  background: rgba(8, 12, 24, 0.8);
+  color: #eef2ff;
+  font: inherit;
+}
+
+.filter-bar input:focus,
+.filter-bar select:focus {
+  outline: 2px solid rgba(255, 183, 77, 0.45);
+  border-color: rgba(255, 183, 77, 0.45);
+}
+
+.report-subline {
+  display: block;
+  color: #7ef0b5;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  margin: 0.1rem 0 0.4rem;
+}
+
+.report-reason {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.report-reason small {
+  color: rgba(238, 242, 255, 0.68);
+}
+
+.empty-state {
+  border-radius: 1rem;
+  padding: 1rem;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  color: rgba(238, 242, 255, 0.72);
+  text-align: center;
+}
+
+.extraction-trace {
+  display: grid;
+  gap: 1rem;
+}
+
+.trace-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.trace-item strong {
+  line-height: 1.4;
+}
+
 .report-list,
 .volunteer-list,
 .insight-grid {
@@ -402,7 +506,10 @@ button:hover {
   .insight-grid,
   .intake-results,
   .form-grid,
-  .result-grid {
+  .result-grid,
+  .analytics-grid,
+  .filter-bar,
+  .trace-list {
     grid-template-columns: 1fr;
   }
 

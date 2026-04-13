@@ -121,6 +121,12 @@ const state = {
   reports: [...seedReports],
   nextId: 1045,
   lastAnalysis: null,
+  filters: {
+    search: '',
+    urgency: 'All',
+    location: 'All',
+    sort: 'priority',
+  },
 }
 
 const root = document.getElementById('root')
@@ -266,9 +272,67 @@ function isDuplicateReport(text) {
   return state.reports.some((report) => report.summary.toLowerCase().includes(normalized.slice(0, 24)))
 }
 
+function getFilteredReports() {
+  const query = state.filters.search.toLowerCase().trim()
+
+  return [...state.reports]
+    .filter((report) => {
+      const matchesSearch = !query || [report.title, report.summary, report.location, report.issueType, report.need]
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+
+      const matchesUrgency = state.filters.urgency === 'All' || report.urgency === state.filters.urgency
+      const matchesLocation = state.filters.location === 'All' || report.location === state.filters.location
+
+      return matchesSearch && matchesUrgency && matchesLocation
+    })
+    .sort((left, right) => {
+      if (state.filters.sort === 'confidence') {
+        return right.confidence - left.confidence
+      }
+
+      if (state.filters.sort === 'location') {
+        return left.location.localeCompare(right.location)
+      }
+
+      return right.score - left.score
+    })
+}
+
+function buildAnalytics(reports) {
+  const byLocation = reports.reduce((accumulator, report) => {
+    accumulator[report.location] = (accumulator[report.location] || 0) + 1
+    return accumulator
+  }, {})
+
+  const byIssue = reports.reduce((accumulator, report) => {
+    accumulator[report.issueType] = (accumulator[report.issueType] || 0) + 1
+    return accumulator
+  }, {})
+
+  const topLocation = Object.entries(byLocation).sort((left, right) => right[1] - left[1])[0]
+  const topIssue = Object.entries(byIssue).sort((left, right) => right[1] - left[1])[0]
+  const averageConfidence = Math.round(
+    reports.reduce((total, report) => total + report.confidence, 0) / Math.max(1, reports.length),
+  )
+
+  return {
+    topLocation: topLocation ? topLocation[0] : 'No location yet',
+    topLocationCount: topLocation ? topLocation[1] : 0,
+    topIssue: topIssue ? topIssue[0] : 'No issue yet',
+    topIssueCount: topIssue ? topIssue[1] : 0,
+    averageConfidence,
+    urgentShare: reports.length ? Math.round((reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length / reports.length) * 100) : 0,
+  }
+}
+
 function render() {
   const counts = summarizeCounts(state.reports)
   const latest = state.lastAnalysis
+  const filteredReports = getFilteredReports()
+  const analytics = buildAnalytics(filteredReports)
+  const locations = ['All', ...new Set(state.reports.map((report) => report.location))]
 
   root.innerHTML = `
     <div class="app-shell">
@@ -343,6 +407,38 @@ function render() {
           </article>
         </section>
 
+        <section class="panel analytics-band" id="journey">
+          <div class="panel-header">
+            <div>
+              <span>Decision intelligence</span>
+              <h3>Hotspots and extraction quality</h3>
+            </div>
+          </div>
+
+          <div class="analytics-grid">
+            <div>
+              <span>Top hotspot</span>
+              <strong>${sanitize(analytics.topLocation)}</strong>
+              <small>${analytics.topLocationCount} active reports in the current filtered view.</small>
+            </div>
+            <div>
+              <span>Dominant issue</span>
+              <strong>${sanitize(analytics.topIssue)}</strong>
+              <small>${analytics.topIssueCount} similar cases feeding the triage queue.</small>
+            </div>
+            <div>
+              <span>Average confidence</span>
+              <strong>${analytics.averageConfidence}%</strong>
+              <small>Confidence from AI extraction across the visible set.</small>
+            </div>
+            <div>
+              <span>Urgent share</span>
+              <strong>${analytics.urgentShare}%</strong>
+              <small>Critical and high-priority items in the filtered list.</small>
+            </div>
+          </div>
+        </section>
+
         <section class="grid-layout">
           <article class="panel" id="cases">
             <div class="panel-header">
@@ -353,8 +449,31 @@ function render() {
               <button type="button" data-scroll-target="#intake">New report</button>
             </div>
 
+            <div class="filter-bar" id="filter-bar">
+              <input id="case-search" type="search" value="${sanitize(state.filters.search)}" placeholder="Search location, issue, or need" />
+              <select id="urgency-filter">
+                ${['All', 'Critical', 'High', 'Medium']
+                  .map((value) => `<option value="${value}" ${state.filters.urgency === value ? 'selected' : ''}>${value}</option>`)
+                  .join('')}
+              </select>
+              <select id="location-filter">
+                ${locations
+                  .map((value) => `<option value="${sanitize(value)}" ${state.filters.location === value ? 'selected' : ''}>${sanitize(value)}</option>`)
+                  .join('')}
+              </select>
+              <select id="sort-filter">
+                ${[
+                  { value: 'priority', label: 'Sort by priority' },
+                  { value: 'confidence', label: 'Sort by confidence' },
+                  { value: 'location', label: 'Sort by location' },
+                ]
+                  .map((option) => `<option value="${option.value}" ${state.filters.sort === option.value ? 'selected' : ''}>${option.label}</option>`)
+                  .join('')}
+              </select>
+            </div>
+
             <div class="report-list">
-              ${state.reports
+              ${filteredReports
                 .map(
                   (report) => `
                     <article class="report-card">
@@ -362,6 +481,7 @@ function render() {
                         <strong>${sanitize(report.title)}</strong>
                         <span>${sanitize(report.urgency)}</span>
                       </div>
+                      <small class="report-subline">${sanitize(report.issueType)} · ${sanitize(report.location)}</small>
                       <p>${sanitize(report.summary)}</p>
                       <div class="report-meta">
                         <span>${sanitize(report.location)}</span>
@@ -373,10 +493,14 @@ function render() {
                         <small>${sanitize(report.need)}</small>
                         <em>${sanitize(report.status)}</em>
                       </div>
+                      <div class="report-reason">
+                        <small>${sanitize(report.reason)}</small>
+                      </div>
                     </article>
                   `,
                 )
                 .join('')}
+              ${filteredReports.length === 0 ? '<div class="empty-state">No reports match the current filters.</div>' : ''}
             </div>
           </article>
 
@@ -478,6 +602,34 @@ function render() {
               </div>
             </div>
           </div>
+
+          <div class="extraction-trace">
+            <div class="panel-header">
+              <div>
+                <span>Extraction trace</span>
+                <h3>What the AI used to decide</h3>
+              </div>
+            </div>
+
+            <div class="trace-list">
+              ${(latest?.extractionFields || [
+                { label: 'Issue type', value: 'Waiting for input' },
+                { label: 'Location', value: 'Waiting for input' },
+                { label: 'Urgency', value: 'Waiting for input' },
+                { label: 'Confidence', value: 'Waiting for input' },
+                { label: 'Source summary', value: 'Submit a report to see the trace.' },
+              ])
+                .map(
+                  (field) => `
+                    <div class="trace-item">
+                      <span>${sanitize(field.label)}</span>
+                      <strong>${sanitize(field.value)}</strong>
+                    </div>
+                  `,
+                )
+                .join('')}
+            </div>
+          </div>
         </section>
 
         <section class="panel" id="insights">
@@ -491,19 +643,19 @@ function render() {
           <div class="insight-grid">
             <div>
               <strong>Input model</strong>
-              <p>Report form, text ingestion, and batch-ready data structure.</p>
+              <p>Report form, search, filters, and batch-ready data structure.</p>
             </div>
             <div>
               <strong>Decision model</strong>
-              <p>Priority scoring and volunteer matching ready for AI integration.</p>
+              <p>Priority scoring, ranking, and volunteer matching with explainable output.</p>
             </div>
             <div>
               <strong>Dashboard shell</strong>
-              <p>Sidebar navigation, metric cards, and distinct data panels.</p>
+              <p>Sidebar navigation, metric cards, analytics, and distinct data panels.</p>
             </div>
             <div>
               <strong>Demo readiness</strong>
-              <p>Seeded data that can be shown immediately in a pitch video.</p>
+              <p>Seeded data with a live workflow that can be shown immediately in a pitch video.</p>
             </div>
           </div>
         </section>
@@ -522,6 +674,26 @@ function render() {
         target.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     })
+  })
+
+  document.getElementById('case-search')?.addEventListener('input', (event) => {
+    state.filters.search = event.target.value
+    render()
+  })
+
+  document.getElementById('urgency-filter')?.addEventListener('change', (event) => {
+    state.filters.urgency = event.target.value
+    render()
+  })
+
+  document.getElementById('location-filter')?.addEventListener('change', (event) => {
+    state.filters.location = event.target.value
+    render()
+  })
+
+  document.getElementById('sort-filter')?.addEventListener('change', (event) => {
+    state.filters.sort = event.target.value
+    render()
   })
 }
 

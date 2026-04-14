@@ -200,6 +200,7 @@ function buildExtractionFields({
   source,
   affectedGroup = 'Community members',
   provider = 'Rule-based',
+  duplicateOf = '',
 }) {
   return [
     { label: 'Issue type', value: issueType },
@@ -210,8 +211,73 @@ function buildExtractionFields({
     { label: 'Expected support', value: support },
     { label: 'Source', value: source },
     { label: 'Analysis provider', value: provider },
+    ...(duplicateOf ? [{ label: 'Duplicate review', value: `Possible match with ${duplicateOf}` }] : []),
     { label: 'Source summary', value: summarizeText(text) },
   ]
+}
+
+function createScoreBreakdown(items) {
+  return items.map((item) => ({
+    label: item.label,
+    value: item.value,
+    detail: item.detail,
+  }))
+}
+
+function createRuleScoreBreakdown({ matchedRule, urgencyBoost, confidence, score }) {
+  const confidenceContribution = Math.min(30, confidence - 60)
+
+  return createScoreBreakdown([
+    {
+      label: 'Rule signals',
+      value: `${matchedRule.baseScore} pts`,
+      detail: `${matchedRule.label} keywords and category cues shaped the base ranking.`,
+    },
+    {
+      label: 'Urgency cues',
+      value: `${urgencyBoost} pts`,
+      detail: 'Words like urgent, immediately, and today raise the time-sensitivity score.',
+    },
+    {
+      label: 'Confidence contribution',
+      value: `${confidenceContribution} pts`,
+      detail: 'The structured extraction confidence adds explainable weight to the final priority.',
+    },
+    {
+      label: 'Final priority',
+      value: `${score} pts`,
+      detail: 'Fallback ranking remains deterministic when Gemini is unavailable.',
+    },
+  ])
+}
+
+function createHybridScoreBreakdown({ confidence, urgency, fallbackScore, score }) {
+  const aiContribution = Math.round(confidence * 0.4)
+  const urgencyContribution = Math.round(getUrgencyScore(urgency) * 0.35)
+  const ruleContribution = Math.round(fallbackScore * 0.25)
+
+  return createScoreBreakdown([
+    {
+      label: 'Gemini confidence',
+      value: `${aiContribution} pts`,
+      detail: `${confidence}% model confidence contributes directly to the ranking.`,
+    },
+    {
+      label: 'Urgency weighting',
+      value: `${urgencyContribution} pts`,
+      detail: `${urgency} cases receive an operational urgency boost for NGO triage.`,
+    },
+    {
+      label: 'Deterministic signals',
+      value: `${ruleContribution} pts`,
+      detail: 'Rule-based cues keep the score stable, auditable, and demo-safe.',
+    },
+    {
+      label: 'Final hybrid score',
+      value: `${score} pts`,
+      detail: 'The final ranking combines model output with deterministic safeguards.',
+    },
+  ])
 }
 
 function hydrateSeedReport(report) {
@@ -220,6 +286,19 @@ function hydrateSeedReport(report) {
     rawText: report.summary,
     affectedGroup: 'Local households',
     provider: 'Rule-based seed data',
+    duplicateOf: '',
+    scoreBreakdown: createScoreBreakdown([
+      {
+        label: 'Seeded priority',
+        value: `${report.score} pts`,
+        detail: 'This sample case is included to make the dashboard feel active on first load.',
+      },
+      {
+        label: 'Operational urgency',
+        value: `${report.urgency}`,
+        detail: 'The seeded dataset mirrors the categories used in live triage.',
+      },
+    ]),
     extractionFields: buildExtractionFields({
       text: report.summary,
       location: report.location,
@@ -230,6 +309,7 @@ function hydrateSeedReport(report) {
       source: report.source,
       affectedGroup: 'Local households',
       provider: 'Rule-based seed data',
+      duplicateOf: '',
     }),
   }
 }
@@ -421,6 +501,13 @@ function extractFromText(text, locationInput, supportInput, sourceInput) {
     source,
     provider: 'Rule-based fallback',
     affectedGroup,
+    duplicateOf: '',
+    scoreBreakdown: createRuleScoreBreakdown({
+      matchedRule,
+      urgencyBoost,
+      confidence,
+      score,
+    }),
     match: recommendVolunteer(location, templateKey, matchedRule.urgency),
     extractionFields: buildExtractionFields({
       text,
@@ -432,6 +519,7 @@ function extractFromText(text, locationInput, supportInput, sourceInput) {
       source,
       affectedGroup,
       provider: 'Rule-based fallback',
+      duplicateOf: '',
     }),
   }
 }
@@ -465,7 +553,7 @@ function buildReportFromBackend({ incident, location, support, source, analysis,
   const reason = String(analysis.justification || fallback.reason).trim()
   const score = Math.min(
     99,
-    Math.round(getUrgencyScore(urgency) * 0.55 + confidence * 0.35 + fallback.score * 0.1),
+    Math.round(confidence * 0.4 + getUrgencyScore(urgency) * 0.35 + fallback.score * 0.25),
   )
 
   return {
@@ -484,6 +572,13 @@ function buildReportFromBackend({ incident, location, support, source, analysis,
     source: source || 'Submitted through intake form',
     provider: providerLabel,
     affectedGroup,
+    duplicateOf: '',
+    scoreBreakdown: createHybridScoreBreakdown({
+      confidence,
+      urgency,
+      fallbackScore: fallback.score,
+      score,
+    }),
     match: recommendVolunteer(resolvedLocation, templateKey, urgency),
     extractionFields: buildExtractionFields({
       text: incident,
@@ -495,6 +590,7 @@ function buildReportFromBackend({ incident, location, support, source, analysis,
       source: source || 'Submitted through intake form',
       affectedGroup,
       provider: providerLabel,
+      duplicateOf: '',
     }),
   }
 }
@@ -511,22 +607,151 @@ function tokenize(text) {
     .filter((token) => token.length > 2)
 }
 
-function findDuplicateReport(text, locationHint) {
-  const incomingTokens = tokenize(text)
-  const incomingLocation = formatLocation(locationHint || '')
+function calculateDuplicateSignals(candidateReport, existingReport) {
+  const candidateTokens = tokenize(`${candidateReport.title} ${candidateReport.summary} ${candidateReport.need} ${candidateReport.rawText}`)
+  const existingTokens = tokenize(`${existingReport.title} ${existingReport.summary} ${existingReport.need} ${existingReport.rawText || ''}`)
+  const sharedTokens = candidateTokens.filter((token) => existingTokens.includes(token))
+  const overlapRatio = sharedTokens.length / Math.max(candidateTokens.length, 1)
+  const sameLocation = candidateReport.location === existingReport.location
+  const sameIssue = candidateReport.issueType.toLowerCase() === existingReport.issueType.toLowerCase()
+  const sameSource = candidateReport.source.toLowerCase() === existingReport.source.toLowerCase()
+  const duplicateScore =
+    overlapRatio * 0.55 +
+    (sameLocation ? 0.2 : 0) +
+    (sameIssue ? 0.2 : 0) +
+    (sameSource ? 0.05 : 0)
 
-  if (!incomingTokens.length) {
+  return {
+    overlapRatio,
+    sameLocation,
+    sameIssue,
+    sameSource,
+    duplicateScore,
+  }
+}
+
+function findDuplicateMatch(candidateReport) {
+  const rankedMatches = state.reports
+    .map((report) => ({
+      report,
+      ...calculateDuplicateSignals(candidateReport, report),
+    }))
+    .sort((left, right) => right.duplicateScore - left.duplicateScore)
+
+  const topMatch = rankedMatches[0]
+  if (!topMatch) {
     return null
   }
 
-  return state.reports.find((report) => {
-    const existingTokens = tokenize(`${report.title} ${report.summary} ${report.need}`)
-    const sharedTokens = incomingTokens.filter((token) => existingTokens.includes(token))
-    const overlapRatio = sharedTokens.length / Math.max(incomingTokens.length, 1)
-    const sameLocation = incomingLocation !== 'Community Zone' && report.location === incomingLocation
+  const threshold = topMatch.report.provider === 'Rule-based seed data' ? 0.78 : 0.82
 
-    return overlapRatio >= 0.55 || (sameLocation && overlapRatio >= 0.35)
+  if (topMatch.duplicateScore < threshold) {
+    return null
+  }
+
+  return topMatch
+}
+
+function parseCsvLine(line) {
+  const values = []
+  let currentValue = ''
+  let insideQuotes = false
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index]
+    const nextCharacter = line[index + 1]
+
+    if (character === '"') {
+      if (insideQuotes && nextCharacter === '"') {
+        currentValue += '"'
+        index += 1
+      } else {
+        insideQuotes = !insideQuotes
+      }
+      continue
+    }
+
+    if (character === ',' && !insideQuotes) {
+      values.push(currentValue.trim())
+      currentValue = ''
+      continue
+    }
+
+    currentValue += character
+  }
+
+  values.push(currentValue.trim())
+  return values
+}
+
+function parseCsvText(csvText) {
+  const lines = String(csvText)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length < 2) {
+    return []
+  }
+
+  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase())
+
+  return lines.slice(1).map((line) => {
+    const values = parseCsvLine(line)
+    return headers.reduce((row, header, index) => {
+      row[header] = values[index] || ''
+      return row
+    }, {})
   })
+}
+
+function buildImportedReport(row) {
+  const incident = row.incident || row.report || row.text || row.description || ''
+  const location = row.location || row.area || row.zone || ''
+  const support = row.support || row.need || row.resources || ''
+  const source = row.source || row.channel || 'CSV import'
+
+  const extracted = extractFromText(incident, location, support, source)
+
+  return {
+    id: createReportId(),
+    rawText: incident,
+    title: extracted.title,
+    location: extracted.location,
+    issueType: extracted.issueType,
+    urgency: extracted.urgency,
+    score: extracted.score,
+    summary: extracted.summary,
+    need: extracted.need,
+    status: extracted.status,
+    confidence: extracted.confidence,
+    reason: extracted.reason,
+    source,
+    provider: 'CSV import (local normalization)',
+    affectedGroup: extracted.affectedGroup,
+    duplicateOf: '',
+    scoreBreakdown: [
+      ...extracted.scoreBreakdown.slice(0, 3),
+      {
+        label: 'Import path',
+        value: 'Batch CSV',
+        detail: 'CSV rows are normalized locally for fast bulk intake during demos.',
+      },
+    ],
+    match: extracted.match,
+    extractionFields: buildExtractionFields({
+      text: incident,
+      location: extracted.location,
+      urgency: extracted.urgency,
+      confidence: extracted.confidence,
+      issueType: extracted.issueType,
+      support: extracted.need,
+      source,
+      affectedGroup: extracted.affectedGroup,
+      provider: 'CSV import (local normalization)',
+      duplicateOf: '',
+    }),
+  }
 }
 
 function getFilteredReports() {
@@ -579,6 +804,12 @@ function buildAnalytics(reports) {
   }, {})
   const topLocation = Object.entries(byLocation).sort((left, right) => right[1] - left[1])[0]
   const topIssue = Object.entries(byIssue).sort((left, right) => right[1] - left[1])[0]
+  const locationHotspots = Object.entries(byLocation)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
+  const issueHotspots = Object.entries(byIssue)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
   const averageConfidence = Math.round(
     reports.reduce((total, report) => total + report.confidence, 0) / Math.max(1, reports.length),
   )
@@ -589,6 +820,8 @@ function buildAnalytics(reports) {
     topIssue: topIssue ? topIssue[0] : 'No issue yet',
     topIssueCount: topIssue ? topIssue[1] : 0,
     averageConfidence,
+    locationHotspots,
+    issueHotspots,
     urgentShare: reports.length
       ? Math.round((reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length / reports.length) * 100)
       : 0,
@@ -633,6 +866,45 @@ function render() {
     ? `<div class="status-banner ${state.analysisStatus.state}">${sanitize(state.analysisStatus.message)}</div>`
     : ''
   const analyzeButtonText = state.analysisStatus.state === 'loading' ? 'Analyzing with Gemini...' : 'Analyze report'
+  const locationHotspotsMarkup = analytics.locationHotspots.length
+    ? analytics.locationHotspots
+        .map(([label, count]) => `
+          <div class="hotspot-chip">
+            <strong>${sanitize(label)}</strong>
+            <span>${count} case${count === 1 ? '' : 's'}</span>
+          </div>
+        `)
+        .join('')
+    : '<div class="empty-state">No hotspots yet.</div>'
+  const issueHotspotsMarkup = analytics.issueHotspots.length
+    ? analytics.issueHotspots
+        .map(([label, count]) => `
+          <div class="hotspot-chip">
+            <strong>${sanitize(label)}</strong>
+            <span>${count} case${count === 1 ? '' : 's'}</span>
+          </div>
+        `)
+        .join('')
+    : '<div class="empty-state">No issue clusters yet.</div>'
+  const scoreBreakdownMarkup = latest?.scoreBreakdown?.length
+    ? latest.scoreBreakdown
+        .map(
+          (item) => `
+            <div class="breakdown-card">
+              <span>${sanitize(item.label)}</span>
+              <strong>${sanitize(item.value)}</strong>
+              <small>${sanitize(item.detail)}</small>
+            </div>
+          `,
+        )
+        .join('')
+    : `
+      <div class="breakdown-card">
+        <span>Priority breakdown</span>
+        <strong>Waiting for input</strong>
+        <small>Analyze a report to see how the score is assembled.</small>
+      </div>
+    `
 
   root.innerHTML = `
     <div class="app-shell">
@@ -740,6 +1012,23 @@ function render() {
               <small>Portion of visible cases that need fast attention.</small>
             </div>
           </div>
+
+          <div class="hotspot-grid">
+            <div class="hotspot-panel">
+              <span>Location clusters</span>
+              <h4>Where needs are concentrating</h4>
+              <div class="hotspot-list">
+                ${locationHotspotsMarkup}
+              </div>
+            </div>
+            <div class="hotspot-panel">
+              <span>Issue clusters</span>
+              <h4>Which needs are repeating</h4>
+              <div class="hotspot-list">
+                ${issueHotspotsMarkup}
+              </div>
+            </div>
+          </div>
         </section>
 
         <section class="grid-layout">
@@ -791,6 +1080,8 @@ function render() {
                         <span>${sanitize(report.source)}</span>
                         <span>${report.score}% priority</span>
                         <span>${report.confidence}% confidence</span>
+                        <span>${sanitize(report.provider || 'Rule-based fallback')}</span>
+                        ${report.duplicateOf ? `<span>Duplicate review: ${sanitize(report.duplicateOf)}</span>` : ''}
                       </div>
                       <div class="report-footer">
                         <small>${sanitize(report.need)}</small>
@@ -885,9 +1176,15 @@ function render() {
               <input name="source" type="text" placeholder="Field note, survey, hotline, spreadsheet" />
             </label>
 
+            <label class="csv-input">
+              <span>Batch CSV import</span>
+              <input id="csv-upload" type="file" accept=".csv,text/csv" />
+              <small>Columns supported: incident, location, support, source. Batch imports use fast local normalization.</small>
+            </label>
+
             <div class="form-actions">
               <button type="submit" id="analyze-button" ${state.analysisStatus.state === 'loading' ? 'disabled' : ''}>${sanitize(analyzeButtonText)}</button>
-              <small>Reports are sent to the backend for Gemini analysis when configured, with rule-based fallback if the API is unavailable.</small>
+              <small>Reports are sent to the backend for Gemini analysis when configured, with rule-based fallback if the API is unavailable. Potential duplicates are flagged instead of hard-blocked.</small>
             </div>
           </form>
 
@@ -959,6 +1256,19 @@ function render() {
                 .join('')}
             </div>
           </div>
+
+          <div class="score-breakdown">
+            <div class="panel-header">
+              <div>
+                <span>Priority model</span>
+                <h3>How the score was built</h3>
+              </div>
+            </div>
+
+            <div class="breakdown-grid">
+              ${scoreBreakdownMarkup}
+            </div>
+          </div>
         </section>
 
         <section class="panel" id="insights">
@@ -976,7 +1286,7 @@ function render() {
             </div>
             <div>
               <strong>Current prototype</strong>
-              <p>This build shows reliable intake, Gemini-backed analysis when configured, and explicit fallback when the API is unavailable.</p>
+              <p>This build shows Gemini-backed analysis, CSV intake, softer duplicate review, and explicit fallback when the API is unavailable.</p>
             </div>
             <div>
               <strong>Trust layer</strong>
@@ -984,7 +1294,7 @@ function render() {
             </div>
             <div>
               <strong>Delivery focus</strong>
-              <p>The same user flow now works through a Node backend, so the Google AI story is ready for live demos once the API key is added.</p>
+              <p>The score now combines model output with deterministic logic, so the product story feels both intelligent and trustworthy during demos.</p>
             </div>
           </div>
         </section>
@@ -1040,6 +1350,92 @@ function render() {
       formElement.elements.source.value = preset.source
     })
   })
+
+  document.getElementById('csv-upload')?.addEventListener('change', handleCsvImport)
+}
+
+async function handleCsvImport(event) {
+  const file = event.target.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  try {
+    const csvText = await file.text()
+    const rows = parseCsvText(csvText)
+
+    if (!rows.length) {
+      state.analysisStatus = {
+        state: 'error',
+        message: 'CSV import needs a header row plus at least one data row.',
+      }
+      render()
+      return
+    }
+
+    let importedCount = 0
+    let duplicateFlagCount = 0
+
+    const importedReports = rows
+      .map((row) => {
+        const incident = row.incident || row.report || row.text || row.description || ''
+        if (!incident.trim()) {
+          return null
+        }
+
+        const report = buildImportedReport(row)
+        const duplicateMatch = findDuplicateMatch(report)
+
+        if (duplicateMatch) {
+          report.duplicateOf = duplicateMatch.report.id
+          report.status = 'Flagged for duplicate review'
+          report.reason = `${report.reason} A similar case (${duplicateMatch.report.id}) is already in the queue, so this row was marked for review instead of being blocked.`
+          report.extractionFields = buildExtractionFields({
+            text: report.rawText,
+            location: report.location,
+            urgency: report.urgency,
+            confidence: report.confidence,
+            issueType: report.issueType,
+            support: report.need,
+            source: report.source,
+            affectedGroup: report.affectedGroup,
+            provider: report.provider,
+            duplicateOf: report.duplicateOf,
+          })
+          duplicateFlagCount += 1
+        }
+
+        importedCount += 1
+        return report
+      })
+      .filter(Boolean)
+
+    if (!importedReports.length) {
+      state.analysisStatus = {
+        state: 'error',
+        message: 'No usable incident rows were found in the CSV file.',
+      }
+      render()
+      return
+    }
+
+    state.reports = [...importedReports.reverse(), ...state.reports]
+    state.lastAnalysis = importedReports[importedReports.length - 1]
+    state.analysisStatus = {
+      state: 'success',
+      message: `Imported ${importedCount} CSV report${importedCount === 1 ? '' : 's'}${duplicateFlagCount ? `, with ${duplicateFlagCount} flagged for duplicate review` : ''}.`,
+    }
+    render()
+  } catch (error) {
+    state.analysisStatus = {
+      state: 'error',
+      message: `CSV import failed: ${error.message}`,
+    }
+    render()
+  } finally {
+    event.target.value = ''
+  }
 }
 
 async function handleSubmit(event) {
@@ -1077,38 +1473,6 @@ async function handleSubmit(event) {
     state.analysisStatus = {
       state: 'error',
       message: 'Enter a report before running analysis.',
-    }
-    render()
-    return
-  }
-
-  const duplicate = findDuplicateReport(incident, location)
-  if (duplicate) {
-    state.lastAnalysis = {
-      title: 'Duplicate detected',
-      reason: `This report appears similar to ${duplicate.id}, so it was flagged for manual review instead of being added twice.`,
-      issueType: duplicate.issueType,
-      urgency: 'Review',
-      confidence: 92,
-      source: source || 'Submitted through intake form',
-      provider: 'Duplicate review',
-      affectedGroup: duplicate.affectedGroup || 'Community members',
-      extractionFields: buildExtractionFields({
-        text: incident,
-        location: location || duplicate.location,
-        urgency: 'Review',
-        confidence: 92,
-        issueType: duplicate.issueType,
-        support: support || duplicate.need,
-        source: source || 'Submitted through intake form',
-        affectedGroup: duplicate.affectedGroup || 'Community members',
-        provider: 'Duplicate review',
-      }),
-      match: { name: 'Manual review', score: 0 },
-    }
-    state.analysisStatus = {
-      state: 'fallback',
-      message: `Potential duplicate flagged against ${duplicate.id}.`,
     }
     render()
     return
@@ -1178,6 +1542,8 @@ async function handleSubmit(event) {
       source: extracted.source,
       provider: extracted.provider,
       affectedGroup: extracted.affectedGroup,
+      duplicateOf: extracted.duplicateOf,
+      scoreBreakdown: extracted.scoreBreakdown,
       match: extracted.match,
       extractionFields: extracted.extractionFields,
     }
@@ -1185,6 +1551,29 @@ async function handleSubmit(event) {
     state.analysisStatus = {
       state: 'fallback',
       message: `${error.message} Using the local fallback engine for this demo run.`,
+    }
+  }
+
+  const duplicateMatch = findDuplicateMatch(newReport)
+  if (duplicateMatch) {
+    newReport.duplicateOf = duplicateMatch.report.id
+    newReport.status = 'Flagged for duplicate review'
+    newReport.reason = `${newReport.reason} A similar case (${duplicateMatch.report.id}) is already in the queue, so this report was added with a review flag instead of being blocked.`
+    newReport.extractionFields = buildExtractionFields({
+      text: newReport.rawText,
+      location: newReport.location,
+      urgency: newReport.urgency,
+      confidence: newReport.confidence,
+      issueType: newReport.issueType,
+      support: newReport.need,
+      source: newReport.source,
+      affectedGroup: newReport.affectedGroup,
+      provider: newReport.provider,
+      duplicateOf: newReport.duplicateOf,
+    })
+    state.analysisStatus = {
+      state: 'fallback',
+      message: `Potential duplicate with ${duplicateMatch.report.id}. The report was still added for manual review.`,
     }
   }
 

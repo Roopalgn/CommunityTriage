@@ -315,6 +315,60 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.hotspot-grid,
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.hotspot-panel,
+.breakdown-card {
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hotspot-panel span,
+.breakdown-card span {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.7rem;
+  color: #ffcc80;
+  margin-bottom: 0.35rem;
+}
+
+.hotspot-panel h4,
+.breakdown-card strong {
+  margin: 0;
+  display: block;
+  font-size: 1.05rem;
+}
+
+.hotspot-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+
+.hotspot-chip {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  border-radius: 0.95rem;
+  padding: 0.85rem 0.95rem;
+  background: rgba(8, 12, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hotspot-chip span,
+.breakdown-card small {
+  color: rgba(238, 242, 255, 0.72);
+}
+
 .analytics-grid span,
 .trace-item span {
   display: block;
@@ -491,6 +545,10 @@ button:disabled {
   color: rgba(238, 242, 255, 0.72);
 }
 
+.csv-input small {
+  color: rgba(238, 242, 255, 0.68);
+}
+
 .status-banner {
   border-radius: 1rem;
   padding: 0.95rem 1rem;
@@ -588,6 +646,8 @@ button:disabled {
   .form-grid,
   .result-grid,
   .analytics-grid,
+  .hotspot-grid,
+  .breakdown-grid,
   .filter-bar,
   .trace-list {
     grid-template-columns: 1fr;

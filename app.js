@@ -102,7 +102,19 @@ const volunteers = [
   },
 ]
 
-const navItems = ['Overview', 'Cases', 'Intake', 'Volunteers', 'Insights']
+const navItems = ['Overview', 'Cases', 'Intake', 'Volunteers', 'Insights', 'Audit']
+
+const LOW_CONFIDENCE_THRESHOLD = 85
+const AUDIT_TRAIL_LIMIT = 45
+
+const targetSkillsByTemplate = {
+  water: ['Logistics', 'Crowd coordination'],
+  flood: ['Procurement', 'Supply handling'],
+  medical: ['Medical support', 'Registration'],
+  food: ['Procurement', 'Crowd coordination'],
+  education: ['Registration', 'Field coordination'],
+  default: ['Field coordination', 'Rapid response'],
+}
 
 const urgencyRules = [
   { terms: ['water', 'dry', 'thirst', 'sanitation', 'pump'], urgency: 'Critical', baseScore: 34, label: 'Water access' },
@@ -394,6 +406,27 @@ function getStatusFromUrgency(urgency) {
   return 'Queue for review'
 }
 
+function findVolunteerById(volunteerId) {
+  return volunteers.find((volunteer) => volunteer.id === volunteerId) || null
+}
+
+function findVolunteerByName(name) {
+  const normalizedName = String(name || '').trim().toLowerCase()
+  if (!normalizedName) {
+    return null
+  }
+
+  return volunteers.find((volunteer) => volunteer.name.toLowerCase() === normalizedName) || null
+}
+
+function getTemplateContextFromReport(report) {
+  return {
+    location: report.location,
+    templateKey: getTemplateKeyFromIssueType(report.issueType, report.rawText || report.summary),
+    urgency: report.urgency,
+  }
+}
+
 function getUrgencyScore(urgency) {
   if (urgency === 'Critical') {
     return 96
@@ -420,31 +453,164 @@ function availabilityBonus(availability) {
   return 1
 }
 
-function recommendVolunteer(location, templateKey, urgency) {
-  const targetSkills = {
-    water: ['Logistics', 'Crowd coordination'],
-    flood: ['Procurement', 'Supply handling'],
-    medical: ['Medical support', 'Registration'],
-    food: ['Procurement', 'Crowd coordination'],
-    education: ['Registration', 'Field coordination'],
-    default: ['Field coordination', 'Rapid response'],
+function calculateVolunteerFit({ location, templateKey, urgency }, volunteer) {
+  const expectedSkills = targetSkillsByTemplate[templateKey] || targetSkillsByTemplate.default
+  const normalizedExpectedSkills = expectedSkills.map((skill) => skill.toLowerCase())
+  const matchedSkills = volunteer.skills.filter((skill) => normalizedExpectedSkills.includes(skill.toLowerCase()))
+  const skillHits = matchedSkills.length
+  const locationMatch = volunteer.location.toLowerCase() === location.toLowerCase()
+  const urgencyBonus = urgency === 'Critical' ? 5 : urgency === 'High' ? 3 : 0
+  const speedBonus = availabilityBonus(volunteer.availability)
+  const score = Math.min(99, 58 + skillHits * 14 + (locationMatch ? 14 : 0) + speedBonus + urgencyBonus)
+
+  return {
+    score,
+    summary: `${volunteer.skills.join(', ')} | ${locationMatch ? 'same-location coverage' : 'cross-area support'} | availability ${volunteer.availability.toLowerCase()}.`,
+    breakdown: [
+      {
+        label: 'Skill fit',
+        value: `${skillHits}/${expectedSkills.length} matched`,
+        detail: matchedSkills.length
+          ? `Matched skills: ${matchedSkills.join(', ')}.`
+          : `Expected skills: ${expectedSkills.join(', ')}.`,
+      },
+      {
+        label: 'Location fit',
+        value: locationMatch ? 'Same area' : 'Cross-area',
+        detail: locationMatch
+          ? `${volunteer.location} matches the case location.`
+          : `${volunteer.location} can still provide support for ${location}.`,
+      },
+      {
+        label: 'Availability',
+        value: volunteer.availability,
+        detail: `Availability bonus: ${speedBonus} points for response timing.`,
+      },
+      {
+        label: 'Final fit score',
+        value: `${score}%`,
+        detail: `Includes urgency weighting (${urgencyBonus} points) for ${urgency.toLowerCase()} cases.`,
+      },
+    ],
+  }
+}
+
+function getMatchBreakdown(report, volunteer) {
+  if (!report || !volunteer) {
+    return []
   }
 
-  const expectedSkills = targetSkills[templateKey] || targetSkills.default
-  const urgencyBonus = urgency === 'Critical' ? 5 : urgency === 'High' ? 3 : 0
+  return calculateVolunteerFit(getTemplateContextFromReport(report), volunteer).breakdown
+}
+
+function getReviewFlags(report) {
+  const flags = []
+
+  if (report.confidence < LOW_CONFIDENCE_THRESHOLD) {
+    flags.push({
+      code: 'low-confidence',
+      label: `Low confidence (${report.confidence}%)`,
+      detail: 'Requires human verification before field action.',
+    })
+  }
+
+  if (report.duplicateOf) {
+    flags.push({
+      code: 'duplicate',
+      label: `Possible duplicate of ${report.duplicateOf}`,
+      detail: 'Review against the linked case before dispatch.',
+    })
+  }
+
+  return flags
+}
+
+function getStatusForWorkflow(report) {
+  if (report.assignedVolunteerId) {
+    const assignedVolunteer = findVolunteerById(report.assignedVolunteerId)
+    return assignedVolunteer ? `Assigned to ${assignedVolunteer.name}` : 'Assigned for field response'
+  }
+
+  if (report.reviewFlags.some((flag) => flag.code === 'duplicate')) {
+    return 'Flagged for duplicate review'
+  }
+
+  if (report.reviewFlags.some((flag) => flag.code === 'low-confidence')) {
+    return 'Needs human review'
+  }
+
+  return getStatusFromUrgency(report.urgency)
+}
+
+function enrichReportForWorkflow(report) {
+  const matchedVolunteer = findVolunteerById(report.match?.id) || findVolunteerByName(report.match?.name)
+  const normalizedMatch = matchedVolunteer
+    ? {
+        ...matchedVolunteer,
+        score: report.match?.score || matchedVolunteer.score,
+        reason: report.match?.reason || `${matchedVolunteer.skills.join(', ')} support the case requirements.`,
+      }
+    : report.match
+  const normalizedReport = {
+    ...report,
+    match: normalizedMatch,
+    assignedVolunteerId: report.assignedVolunteerId || '',
+  }
+
+  normalizedReport.reviewFlags = getReviewFlags(normalizedReport)
+  normalizedReport.status = getStatusForWorkflow(normalizedReport)
+
+  return normalizedReport
+}
+
+function getAuditTypeLabel(type) {
+  const labels = {
+    analyze: 'Analyze',
+    override: 'Override',
+    assign: 'Assignment',
+    'duplicate-flag': 'Duplicate flag',
+  }
+
+  return labels[type] || 'Audit'
+}
+
+function formatAuditTime(timestamp) {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown time'
+  }
+
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function logAuditEvent(type, reportId, message) {
+  state.auditTrail = [
+    {
+      id: `AT-${state.nextAuditId++}`,
+      type,
+      reportId,
+      message,
+      timestamp: new Date().toISOString(),
+    },
+    ...state.auditTrail,
+  ].slice(0, AUDIT_TRAIL_LIMIT)
+}
+
+function recommendVolunteer(location, templateKey, urgency) {
+  const context = { location, templateKey, urgency }
 
   const scoredVolunteers = volunteers.map((volunteer) => {
-    const skillHits = volunteer.skills.filter((skill) =>
-      expectedSkills.some((expected) => expected.toLowerCase() === skill.toLowerCase()),
-    ).length
-    const locationMatch = volunteer.location.toLowerCase() === location.toLowerCase() ? 14 : 0
-    const speedBonus = availabilityBonus(volunteer.availability)
-    const score = Math.min(99, 58 + skillHits * 14 + locationMatch + speedBonus + urgencyBonus)
+    const fit = calculateVolunteerFit(context, volunteer)
 
     return {
       ...volunteer,
-      score,
-      reason: `${volunteer.skills.join(', ')} | ${locationMatch ? 'same-location coverage' : 'cross-area support'} | availability ${volunteer.availability.toLowerCase()}.`,
+      score: fit.score,
+      reason: fit.summary,
     }
   })
 
@@ -783,7 +949,7 @@ function getFilteredReports() {
 
 function summarizeCounts(reports) {
   const urgent = reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length
-  const reviewQueue = reports.filter((report) => report.urgency === 'Medium' || report.confidence < 85).length
+  const reviewQueue = reports.filter((report) => report.reviewFlags?.length).length
 
   return {
     triaged: reports.length,
@@ -828,10 +994,15 @@ function buildAnalytics(reports) {
   }
 }
 
+const seededReports = rawSeedReports.map((report) => enrichReportForWorkflow(hydrateSeedReport(report)))
+
 const state = {
-  reports: rawSeedReports.map(hydrateSeedReport),
+  reports: seededReports,
   nextId: 1045,
+  nextAuditId: 1,
   lastAnalysis: null,
+  selectedReportId: seededReports[0]?.id || null,
+  auditTrail: [],
   backend: {
     available: false,
     geminiConfigured: false,
@@ -850,6 +1021,13 @@ const state = {
 }
 
 state.lastAnalysis = state.reports[0]
+state.auditTrail = state.reports.map((report, index) => ({
+  id: `AT-${state.nextAuditId++}`,
+  type: 'analyze',
+  reportId: report.id,
+  message: `Case ${report.id} entered the queue with ${report.urgency.toLowerCase()} urgency and ${report.confidence}% confidence.`,
+  timestamp: new Date(Date.now() - (index + 1) * 60000).toISOString(),
+}))
 
 function render() {
   const counts = summarizeCounts(state.reports)
@@ -857,6 +1035,19 @@ function render() {
   const filteredReports = getFilteredReports()
   const analytics = buildAnalytics(filteredReports)
   const locations = ['All', ...new Set(state.reports.map((report) => report.location))]
+  const selectedReport = state.reports.find((report) => report.id === state.selectedReportId) || state.reports[0] || null
+  const selectedVolunteer = selectedReport
+    ? findVolunteerById(selectedReport.assignedVolunteerId) ||
+      findVolunteerById(selectedReport.match?.id) ||
+      findVolunteerByName(selectedReport.match?.name)
+    : null
+  const selectedFitBreakdown = selectedReport && selectedVolunteer ? getMatchBreakdown(selectedReport, selectedVolunteer) : []
+  const selectedVolunteerId = selectedReport?.assignedVolunteerId || selectedReport?.match?.id || ''
+
+  if (selectedReport && state.selectedReportId !== selectedReport.id) {
+    state.selectedReportId = selectedReport.id
+  }
+
   const activeEngineLabel = state.backend.geminiConfigured ? 'Gemini-assisted extraction' : 'Rule-based fallback'
   const backendLabel = state.backend.available ? 'Node API online' : 'Static fallback mode'
   const googleAiLabel = state.backend.geminiConfigured
@@ -905,6 +1096,52 @@ function render() {
         <small>Analyze a report to see how the score is assembled.</small>
       </div>
     `
+  const selectedFlagsMarkup = selectedReport?.reviewFlags?.length
+    ? selectedReport.reviewFlags
+        .map((flag) => `<span class="flag-chip ${sanitize(flag.code)}">${sanitize(flag.label)}</span>`)
+        .join('')
+    : '<span class="flag-chip ok">No review flags</span>'
+  const selectedFitMarkup = selectedFitBreakdown.length
+    ? selectedFitBreakdown
+        .map(
+          (item) => `
+            <div class="mini-breakdown-card">
+              <span>${sanitize(item.label)}</span>
+              <strong>${sanitize(item.value)}</strong>
+              <small>${sanitize(item.detail)}</small>
+            </div>
+          `,
+        )
+        .join('')
+    : `
+      <div class="mini-breakdown-card">
+        <span>Volunteer match</span>
+        <strong>No match selected</strong>
+        <small>Select or assign a volunteer to view reasoning.</small>
+      </div>
+    `
+  const assignmentOptionsMarkup = volunteers
+    .map(
+      (volunteer) =>
+        `<option value="${sanitize(volunteer.id)}" ${selectedVolunteerId === volunteer.id ? 'selected' : ''}>${sanitize(volunteer.name)} | ${sanitize(volunteer.location)} | ${sanitize(volunteer.availability)}</option>`,
+    )
+    .join('')
+  const auditTrailMarkup = state.auditTrail.length
+    ? state.auditTrail
+        .map(
+          (entry) => `
+            <article class="audit-entry">
+              <div class="audit-topline">
+                <span>${sanitize(getAuditTypeLabel(entry.type))}</span>
+                <strong>${sanitize(entry.reportId)}</strong>
+                <small>${sanitize(formatAuditTime(entry.timestamp))}</small>
+              </div>
+              <p>${sanitize(entry.message)}</p>
+            </article>
+          `,
+        )
+        .join('')
+    : '<div class="empty-state">No audit events yet. Analyze, override, or assign to start the log.</div>'
 
   root.innerHTML = `
     <div class="app-shell">
@@ -1068,7 +1305,7 @@ function render() {
               ${filteredReports
                 .map(
                   (report) => `
-                    <article class="report-card">
+                    <article class="report-card ${selectedReport?.id === report.id ? 'active' : ''}">
                       <div class="report-topline">
                         <strong>${sanitize(report.title)}</strong>
                         <span>${sanitize(report.urgency)}</span>
@@ -1083,12 +1320,23 @@ function render() {
                         <span>${sanitize(report.provider || 'Rule-based fallback')}</span>
                         ${report.duplicateOf ? `<span>Duplicate review: ${sanitize(report.duplicateOf)}</span>` : ''}
                       </div>
+                      ${report.reviewFlags?.length
+                        ? `<div class="flag-row">${report.reviewFlags
+                            .map((flag) => `<span class="flag-chip ${sanitize(flag.code)}">${sanitize(flag.label)}</span>`)
+                            .join('')}</div>`
+                        : ''}
                       <div class="report-footer">
                         <small>${sanitize(report.need)}</small>
                         <em>${sanitize(report.status)}</em>
                       </div>
                       <div class="report-reason">
                         <small>${sanitize(report.reason)}</small>
+                      </div>
+                      <div class="report-actions">
+                        <button type="button" class="ghost-button select-case" data-report-id="${sanitize(report.id)}">${selectedReport?.id === report.id ? 'Selected case' : 'View details'}</button>
+                        ${report.assignedVolunteerId
+                          ? `<button type="button" class="ghost-button danger" data-unassign-report="${sanitize(report.id)}">Unassign</button>`
+                          : `<button type="button" data-assign-report="${sanitize(report.id)}" data-volunteer-id="${sanitize(report.match?.id || '')}" ${report.match?.id ? '' : 'disabled'}>Assign suggested</button>`}
                       </div>
                     </article>
                   `,
@@ -1098,38 +1346,111 @@ function render() {
             </div>
           </article>
 
-          <aside class="panel" id="volunteers">
+          <aside class="panel case-detail-panel" id="volunteers">
             <div class="panel-header">
               <div>
-                <span>Volunteer match</span>
-                <h3>Best-fit assignments</h3>
+                <span>Case detail</span>
+                <h3>Human review and assignment</h3>
               </div>
             </div>
 
-            <div class="volunteer-list">
-              ${volunteers
-                .map(
-                  (volunteer) => `
-                    <article class="volunteer-card">
-                      <div>
-                        <strong>${sanitize(volunteer.name)}</strong>
-                        <span>${volunteer.score}% baseline fit</span>
-                      </div>
-                      <p>${sanitize(volunteer.skills.join(' | '))}</p>
-                      <small>${sanitize(volunteer.location)} | Available ${sanitize(volunteer.availability)}</small>
-                    </article>
-                  `,
-                )
-                .join('')}
-            </div>
+            ${selectedReport
+              ? `
+                <div class="detail-card">
+                  <div class="detail-headline">
+                    <strong>${sanitize(selectedReport.title)}</strong>
+                    <span>${sanitize(selectedReport.id)}</span>
+                  </div>
+                  <p>${sanitize(selectedReport.summary)}</p>
+                  <div class="detail-grid">
+                    <div>
+                      <span>Issue</span>
+                      <strong>${sanitize(selectedReport.issueType)}</strong>
+                    </div>
+                    <div>
+                      <span>Location</span>
+                      <strong>${sanitize(selectedReport.location)}</strong>
+                    </div>
+                    <div>
+                      <span>Urgency</span>
+                      <strong>${sanitize(selectedReport.urgency)}</strong>
+                    </div>
+                    <div>
+                      <span>Priority score</span>
+                      <strong>${selectedReport.score}%</strong>
+                    </div>
+                    <div>
+                      <span>Confidence</span>
+                      <strong>${selectedReport.confidence}%</strong>
+                    </div>
+                    <div>
+                      <span>Assigned volunteer</span>
+                      <strong>${selectedVolunteer ? sanitize(selectedVolunteer.name) : 'Not assigned'}</strong>
+                    </div>
+                  </div>
+                </div>
 
-            <div class="sidebar-card secondary">
-              <span>Explainability</span>
-              <strong>Why these matches?</strong>
-              <small>
-                The current scoring combines skill overlap, location fit, and volunteer availability so the recommendation stays easy to explain.
-              </small>
-            </div>
+                <div class="review-box">
+                  <h4>Review flags</h4>
+                  <div class="flag-row">${selectedFlagsMarkup}</div>
+                </div>
+
+                <form class="override-form" id="override-form" data-report-id="${sanitize(selectedReport.id)}">
+                  <label>
+                    <span>Manual urgency override</span>
+                    <select name="overrideUrgency">
+                      ${['Critical', 'High', 'Medium']
+                        .map((value) => `<option value="${value}" ${selectedReport.urgency === value ? 'selected' : ''}>${value}</option>`)
+                        .join('')}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Manual priority score</span>
+                    <input name="overrideScore" type="number" min="0" max="99" value="${selectedReport.score}" />
+                  </label>
+                  <button type="submit">Apply manual override</button>
+                </form>
+
+                ${selectedReport.manualOverride
+                  ? `<small class="detail-note">Last override: ${sanitize(selectedReport.manualOverride.previousUrgency)} ${selectedReport.manualOverride.previousScore}% -> ${sanitize(selectedReport.manualOverride.urgency)} ${selectedReport.manualOverride.score}%.</small>`
+                  : ''}
+
+                <div class="assignment-controls">
+                  <label>
+                    <span>Assignment picker</span>
+                    <select id="assignment-select-${sanitize(selectedReport.id)}" data-report-id="${sanitize(selectedReport.id)}">
+                      ${assignmentOptionsMarkup}
+                    </select>
+                  </label>
+                  <div class="assignment-actions">
+                    <button type="button" data-assign-from-select="${sanitize(selectedReport.id)}">Assign selected volunteer</button>
+                    <button type="button" class="ghost-button danger" data-unassign-report="${sanitize(selectedReport.id)}" ${selectedReport.assignedVolunteerId ? '' : 'disabled'}>Unassign</button>
+                  </div>
+                </div>
+
+                <div class="mini-breakdown-grid">
+                  ${selectedFitMarkup}
+                </div>
+
+                <div class="volunteer-list quick-assign-list">
+                  ${volunteers
+                    .map(
+                      (volunteer) => `
+                        <article class="volunteer-card">
+                          <div>
+                            <strong>${sanitize(volunteer.name)}</strong>
+                            <span>${sanitize(volunteer.location)}</span>
+                          </div>
+                          <p>${sanitize(volunteer.skills.join(' | '))}</p>
+                          <small>Available ${sanitize(volunteer.availability)}</small>
+                          <button type="button" data-assign-report="${sanitize(selectedReport.id)}" data-volunteer-id="${sanitize(volunteer.id)}" ${selectedReport.assignedVolunteerId === volunteer.id ? 'disabled' : ''}>${selectedReport.assignedVolunteerId === volunteer.id ? 'Assigned' : 'Assign'}</button>
+                        </article>
+                      `,
+                    )
+                    .join('')}
+                </div>
+              `
+              : '<div class="empty-state">No case selected. Choose a report to begin manual review.</div>'}
           </aside>
         </section>
 
@@ -1286,16 +1607,29 @@ function render() {
             </div>
             <div>
               <strong>Current prototype</strong>
-              <p>This build shows Gemini-backed analysis, CSV intake, softer duplicate review, and explicit fallback when the API is unavailable.</p>
+              <p>This build now includes Gemini-backed analysis, low-confidence flags, manual overrides, one-click assignment actions, and explicit fallback when the API is unavailable.</p>
             </div>
             <div>
               <strong>Trust layer</strong>
-              <p>The dashboard exposes confidence, rationale, and source context so decisions stay explainable.</p>
+              <p>The dashboard exposes confidence, rationale, review flags, and assignment reasoning so triage decisions remain explainable.</p>
             </div>
             <div>
               <strong>Delivery focus</strong>
-              <p>The score now combines model output with deterministic logic, so the product story feels both intelligent and trustworthy during demos.</p>
+              <p>An audit trail captures analyze, duplicate flag, override, and assignment events to show human-in-the-loop governance during demos.</p>
             </div>
+          </div>
+        </section>
+
+        <section class="panel" id="audit">
+          <div class="panel-header">
+            <div>
+              <span>Audit trail</span>
+              <h3>Decision log for review and assignment actions</h3>
+            </div>
+          </div>
+
+          <div class="audit-list">
+            ${auditTrailMarkup}
           </div>
         </section>
       </main>
@@ -1351,7 +1685,203 @@ function render() {
     })
   })
 
+  document.querySelectorAll('.select-case').forEach((button) => {
+    button.addEventListener('click', handleCaseSelection)
+  })
+
+  document.getElementById('override-form')?.addEventListener('submit', handlePriorityOverride)
+
+  document.querySelectorAll('[data-assign-report]').forEach((button) => {
+    button.addEventListener('click', handleAssignVolunteer)
+  })
+
+  document.querySelectorAll('[data-assign-from-select]').forEach((button) => {
+    button.addEventListener('click', handleAssignFromPicker)
+  })
+
+  document.querySelectorAll('[data-unassign-report]').forEach((button) => {
+    button.addEventListener('click', handleUnassignVolunteer)
+  })
+
   document.getElementById('csv-upload')?.addEventListener('change', handleCsvImport)
+}
+
+function updateReport(reportId, updater) {
+  let updatedReport = null
+
+  state.reports = state.reports.map((report) => {
+    if (report.id !== reportId) {
+      return report
+    }
+
+    updatedReport = enrichReportForWorkflow(updater(report))
+    return updatedReport
+  })
+
+  if (!updatedReport) {
+    return null
+  }
+
+  if (state.lastAnalysis?.id === reportId) {
+    state.lastAnalysis = updatedReport
+  }
+
+  state.selectedReportId = reportId
+  return updatedReport
+}
+
+function assignVolunteerToReport(reportId, volunteerId, sourceLabel) {
+  const volunteer = findVolunteerById(volunteerId)
+
+  if (!volunteer) {
+    state.analysisStatus = {
+      state: 'error',
+      message: 'Select a valid volunteer before assigning.',
+    }
+    render()
+    return
+  }
+
+  const updatedReport = updateReport(reportId, (report) => {
+    const fit = calculateVolunteerFit(getTemplateContextFromReport(report), volunteer)
+
+    return {
+      ...report,
+      assignedVolunteerId: volunteer.id,
+      match: {
+        ...volunteer,
+        score: fit.score,
+        reason: fit.summary,
+      },
+    }
+  })
+
+  if (!updatedReport) {
+    return
+  }
+
+  state.analysisStatus = {
+    state: 'success',
+    message: `${volunteer.name} assigned to ${reportId}.`,
+  }
+
+  logAuditEvent('assign', reportId, `Assigned ${volunteer.name} to ${reportId} via ${sourceLabel}.`)
+  render()
+}
+
+function handleCaseSelection(event) {
+  const reportId = event.currentTarget.getAttribute('data-report-id')
+
+  if (!reportId) {
+    return
+  }
+
+  state.selectedReportId = reportId
+  render()
+}
+
+function handlePriorityOverride(event) {
+  event.preventDefault()
+
+  const reportId = event.currentTarget.getAttribute('data-report-id')
+  if (!reportId) {
+    return
+  }
+
+  const formData = new FormData(event.currentTarget)
+  const urgency = normalizeUrgency(formData.get('overrideUrgency'))
+  const score = clampNumber(formData.get('overrideScore'), 0, 99, 70)
+
+  const updatedReport = updateReport(reportId, (report) => {
+    const previousUrgency = report.urgency
+    const previousScore = report.score
+    const extractionFields = [
+      ...(report.extractionFields || []).filter((field) => field.label !== 'Manual override'),
+      {
+        label: 'Manual override',
+        value: `${urgency} urgency and ${score}% priority`,
+      },
+    ]
+
+    return {
+      ...report,
+      urgency,
+      score,
+      manualOverride: {
+        previousUrgency,
+        previousScore,
+        urgency,
+        score,
+        timestamp: new Date().toISOString(),
+      },
+      extractionFields,
+    }
+  })
+
+  if (!updatedReport) {
+    return
+  }
+
+  state.analysisStatus = {
+    state: 'success',
+    message: `Manual override applied to ${reportId}.`,
+  }
+
+  logAuditEvent(
+    'override',
+    reportId,
+    `Priority updated from ${updatedReport.manualOverride.previousUrgency}/${updatedReport.manualOverride.previousScore}% to ${urgency}/${score}%.`,
+  )
+
+  render()
+}
+
+function handleAssignVolunteer(event) {
+  const reportId = event.currentTarget.getAttribute('data-assign-report')
+  const volunteerId = event.currentTarget.getAttribute('data-volunteer-id')
+
+  if (!reportId || !volunteerId) {
+    return
+  }
+
+  assignVolunteerToReport(reportId, volunteerId, 'quick action')
+}
+
+function handleAssignFromPicker(event) {
+  const reportId = event.currentTarget.getAttribute('data-assign-from-select')
+
+  if (!reportId) {
+    return
+  }
+
+  const picker = document.getElementById(`assignment-select-${reportId}`)
+  const volunteerId = picker?.value || ''
+  assignVolunteerToReport(reportId, volunteerId, 'assignment picker')
+}
+
+function handleUnassignVolunteer(event) {
+  const reportId = event.currentTarget.getAttribute('data-unassign-report')
+
+  if (!reportId) {
+    return
+  }
+
+  const updatedReport = updateReport(reportId, (report) => ({
+    ...report,
+    assignedVolunteerId: '',
+  }))
+
+  if (!updatedReport) {
+    return
+  }
+
+  state.analysisStatus = {
+    state: 'fallback',
+    message: `Volunteer unassigned from ${reportId}.`,
+  }
+
+  logAuditEvent('assign', reportId, `Removed volunteer assignment from ${reportId}.`)
+  render()
 }
 
 async function handleCsvImport(event) {
@@ -1384,28 +1914,33 @@ async function handleCsvImport(event) {
           return null
         }
 
-        const report = buildImportedReport(row)
+        let report = enrichReportForWorkflow(buildImportedReport(row))
         const duplicateMatch = findDuplicateMatch(report)
 
         if (duplicateMatch) {
-          report.duplicateOf = duplicateMatch.report.id
-          report.status = 'Flagged for duplicate review'
-          report.reason = `${report.reason} A similar case (${duplicateMatch.report.id}) is already in the queue, so this row was marked for review instead of being blocked.`
-          report.extractionFields = buildExtractionFields({
-            text: report.rawText,
-            location: report.location,
-            urgency: report.urgency,
-            confidence: report.confidence,
-            issueType: report.issueType,
-            support: report.need,
-            source: report.source,
-            affectedGroup: report.affectedGroup,
-            provider: report.provider,
-            duplicateOf: report.duplicateOf,
+          report = enrichReportForWorkflow({
+            ...report,
+            duplicateOf: duplicateMatch.report.id,
+            reason: `${report.reason} A similar case (${duplicateMatch.report.id}) is already in the queue, so this row was marked for review instead of being blocked.`,
+            extractionFields: buildExtractionFields({
+              text: report.rawText,
+              location: report.location,
+              urgency: report.urgency,
+              confidence: report.confidence,
+              issueType: report.issueType,
+              support: report.need,
+              source: report.source,
+              affectedGroup: report.affectedGroup,
+              provider: report.provider,
+              duplicateOf: duplicateMatch.report.id,
+            }),
           })
+
           duplicateFlagCount += 1
+          logAuditEvent('duplicate-flag', report.id, `CSV intake flagged ${report.id} as a potential duplicate of ${duplicateMatch.report.id}.`)
         }
 
+        logAuditEvent('analyze', report.id, `CSV intake analyzed ${report.id} with ${report.confidence}% confidence.`)
         importedCount += 1
         return report
       })
@@ -1422,6 +1957,7 @@ async function handleCsvImport(event) {
 
     state.reports = [...importedReports.reverse(), ...state.reports]
     state.lastAnalysis = importedReports[importedReports.length - 1]
+    state.selectedReportId = state.lastAnalysis.id
     state.analysisStatus = {
       state: 'success',
       message: `Imported ${importedCount} CSV report${importedCount === 1 ? '' : 's'}${duplicateFlagCount ? `, with ${duplicateFlagCount} flagged for duplicate review` : ''}.`,
@@ -1557,7 +2093,6 @@ async function handleSubmit(event) {
   const duplicateMatch = findDuplicateMatch(newReport)
   if (duplicateMatch) {
     newReport.duplicateOf = duplicateMatch.report.id
-    newReport.status = 'Flagged for duplicate review'
     newReport.reason = `${newReport.reason} A similar case (${duplicateMatch.report.id}) is already in the queue, so this report was added with a review flag instead of being blocked.`
     newReport.extractionFields = buildExtractionFields({
       text: newReport.rawText,
@@ -1575,10 +2110,17 @@ async function handleSubmit(event) {
       state: 'fallback',
       message: `Potential duplicate with ${duplicateMatch.report.id}. The report was still added for manual review.`,
     }
+
+    logAuditEvent('duplicate-flag', newReport.id, `New report ${newReport.id} was flagged as a potential duplicate of ${duplicateMatch.report.id}.`)
   }
+
+  newReport = enrichReportForWorkflow(newReport)
 
   state.reports = [newReport, ...state.reports]
   state.lastAnalysis = newReport
+  state.selectedReportId = newReport.id
+
+  logAuditEvent('analyze', newReport.id, `${newReport.provider} analyzed ${newReport.id} with ${newReport.confidence}% confidence.`)
 
   render()
   event.currentTarget.reset()

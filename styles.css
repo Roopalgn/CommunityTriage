@@ -636,6 +636,214 @@ button:disabled {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.report-card.active {
+  border-color: rgba(126, 240, 181, 0.42);
+  box-shadow: 0 0 0 1px rgba(126, 240, 181, 0.2);
+}
+
+.flag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+.flag-chip {
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #eef2ff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.flag-chip.low-confidence {
+  border-color: rgba(255, 193, 7, 0.55);
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffe7ad;
+}
+
+.flag-chip.duplicate {
+  border-color: rgba(255, 138, 128, 0.55);
+  background: rgba(255, 138, 128, 0.2);
+  color: #ffd4ce;
+}
+
+.flag-chip.ok {
+  border-color: rgba(126, 240, 181, 0.4);
+  background: rgba(126, 240, 181, 0.15);
+  color: #c7ffe2;
+}
+
+.report-actions {
+  margin-top: 0.95rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.report-actions button,
+.assignment-actions button,
+.quick-assign-list button,
+.override-form button {
+  padding: 0.6rem 0.9rem;
+  font-size: 0.84rem;
+}
+
+.ghost-button {
+  background: rgba(255, 255, 255, 0.08);
+  color: #eef2ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.ghost-button:hover {
+  box-shadow: 0 8px 18px rgba(2, 8, 23, 0.35);
+}
+
+.ghost-button.danger {
+  border-color: rgba(255, 120, 120, 0.45);
+  color: #ffd1d1;
+}
+
+.case-detail-panel {
+  align-content: start;
+}
+
+.detail-card,
+.review-box,
+.assignment-controls,
+.audit-entry {
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detail-headline {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.detail-headline span,
+.detail-grid span,
+.review-box h4,
+.override-form span,
+.assignment-controls span,
+.audit-topline span,
+.mini-breakdown-card span {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: #ffcc80;
+}
+
+.detail-card p,
+.audit-entry p,
+.mini-breakdown-card small,
+.detail-note {
+  color: rgba(238, 242, 255, 0.75);
+}
+
+.detail-grid {
+  margin-top: 0.95rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.detail-grid div,
+.mini-breakdown-card {
+  border-radius: 0.85rem;
+  padding: 0.75rem;
+  background: rgba(8, 12, 24, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.detail-grid strong,
+.mini-breakdown-card strong,
+.audit-topline strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.review-box h4 {
+  margin: 0;
+}
+
+.override-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.override-form label,
+.assignment-controls label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.override-form select,
+.override-form input,
+.assignment-controls select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.9rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(8, 12, 24, 0.8);
+  color: #eef2ff;
+  font: inherit;
+}
+
+.assignment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.mini-breakdown-grid,
+.audit-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.mini-breakdown-card small {
+  display: block;
+  margin-top: 0.3rem;
+  line-height: 1.4;
+}
+
+.detail-note {
+  display: block;
+  margin-top: -0.2rem;
+}
+
+.quick-assign-list .volunteer-card {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.quick-assign-list button {
+  justify-self: start;
+}
+
+.audit-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.audit-topline small {
+  color: rgba(238, 242, 255, 0.66);
+}
+
+.audit-entry p {
+  margin: 0.5rem 0 0;
+}
+
 @media (max-width: 1100px) {
   .app-shell,
   .hero,
@@ -649,7 +857,8 @@ button:disabled {
   .hotspot-grid,
   .breakdown-grid,
   .filter-bar,
-  .trace-list {
+  .trace-list,
+  .detail-grid {
     grid-template-columns: 1fr;
   }
 

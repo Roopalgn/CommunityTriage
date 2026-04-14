@@ -1,6 +1,6 @@
 # CommunityTriage
 
-Explainable NGO operations dashboard that turns scattered community reports into structured needs, prioritizes urgent cases, and matches the right volunteers to the right tasks. Push 7 keeps the Gemini backend from Push 6 and adds softer duplicate handling, CSV intake, hotspot summaries, and a visible hybrid scoring breakdown.
+Explainable NGO operations dashboard that turns scattered community reports into structured needs, prioritizes urgent cases, and matches the right volunteers to the right tasks. Push 8 extends the Push 7 Gemini + intake pipeline with human review controls, assignment actions, and an in-product audit trail.
 
 ## Run locally
 
@@ -19,7 +19,7 @@ The app will run at `http://localhost:3000`.
 
 If `GEMINI_API_KEY` is missing, the UI still works and clearly falls back to the local rule-based analyzer.
 
-## Current Push 7 scope
+## Current Push 8 scope
 
 - Dashboard shell with navigation
 - Seeded community report data
@@ -30,7 +30,11 @@ If `GEMINI_API_KEY` is missing, the UI still works and clearly falls back to the
 - Rule-based fallback with softer duplicate review
 - CSV batch intake for community reports
 - Hybrid priority score breakdown for the latest case
-- Volunteer matching with explainable reasoning
+- Expanded case detail with manual priority override
+- Low-confidence and duplicate review flags
+- One-click assign and unassign actions
+- Volunteer match reasoning breakdown
+- Lightweight audit trail for analyze, duplicate flag, override, and assignment actions
 
 ## Current workflow
 
@@ -41,7 +45,12 @@ If `GEMINI_API_KEY` is missing, the UI still works and clearly falls back to the
 - Duplicate review warnings that flag cases instead of hard-blocking them
 - CSV upload for batch intake using local normalization
 - Hotspot summaries for location and issue clusters
-- Volunteer matching with transparent reasoning
+- Expanded case view for coordinator decisions
+- Manual urgency and score override controls
+- Low-confidence review queue indicators
+- One-click volunteer assign and unassign actions
+- Assignment reasoning breakdown by skill, location, and availability
+- Audit trail entries for analyze, duplicate, override, and assign events
 - Loading, success, and fallback states in the dashboard
 - Live re-render of the dashboard after each new report
 
@@ -57,14 +66,17 @@ If `GEMINI_API_KEY` is missing, the UI still works and clearly falls back to the
 1. Open the dashboard and point to the triage summary.
 2. Load one of the demo presets from the intake section.
 3. Click analyze to show Gemini extraction, ranking, and volunteer matching.
-4. Use the hotspot summaries and analytics band to show decision intelligence.
-5. Mention the extraction trace, provider label, and score breakdown to explain how the rank was produced.
+4. Open a case detail, apply a manual override, and assign/unassign a volunteer.
+5. Use hotspot summaries, review flags, and match reasoning to explain decisions.
+6. Point to the audit trail to show transparent human-in-the-loop operations.
 
 ## Suggested pitch order
 
 - Problem statement and why it matters
 - Live demo using a preset report
 - Gemini-backed triage plus fallback reliability
-- Filters, hotspots, duplicate review, and explainability
+- Filters, hotspots, duplicate review, and low-confidence flags
+- Manual overrides, one-click assignment, and reasoning transparency
+- Audit trail and governance story for NGO trust
 - CSV intake and hybrid scoring as proof of operational depth
-- Next steps: manual review actions, assignment workflow, then OCR, PDF intake, richer routing, and deeper governance
+- Next steps: OCR, PDF intake, richer routing, and deeper governance

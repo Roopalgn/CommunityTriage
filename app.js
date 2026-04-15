@@ -106,6 +106,8 @@ const navItems = ['Overview', 'Cases', 'Intake', 'Volunteers', 'Insights', 'Audi
 
 const LOW_CONFIDENCE_THRESHOLD = 85
 const AUDIT_TRAIL_LIMIT = 45
+const STATE_STORAGE_KEY = 'communitytriage.runtime.v1'
+const STATE_STORAGE_VERSION = 1
 
 const targetSkillsByTemplate = {
   water: ['Logistics', 'Crowd coordination'],
@@ -588,14 +590,134 @@ function formatAuditTime(timestamp) {
   })
 }
 
-function logAuditEvent(type, reportId, message) {
+function createClientRequestId(prefix = 'client') {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`
+  }
+
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function buildSeedAuditTrail(reports, nextAuditId = 1, nextEventId = 1) {
+  const auditTrail = reports.map((report, index) => ({
+    id: `AT-${nextAuditId + index}`,
+    eventId: `EV-${nextEventId + index}`,
+    requestId: `seed-${report.id}`,
+    type: 'analyze',
+    reportId: report.id,
+    message: `Case ${report.id} entered the queue with ${report.urgency.toLowerCase()} urgency and ${report.confidence}% confidence.`,
+    timestamp: new Date(Date.now() - (index + 1) * 60000).toISOString(),
+    metadata: {
+      provider: report.provider,
+      confidence: report.confidence,
+      source: 'baseline',
+    },
+  }))
+
+  return {
+    auditTrail,
+    nextAuditId: nextAuditId + auditTrail.length,
+    nextEventId: nextEventId + auditTrail.length,
+  }
+}
+
+function getPersistableStateSnapshot() {
+  return {
+    version: STATE_STORAGE_VERSION,
+    savedAt: new Date().toISOString(),
+    reports: state.reports,
+    nextId: state.nextId,
+    nextAuditId: state.nextAuditId,
+    nextEventId: state.nextEventId,
+    lastAnalysisId: state.lastAnalysis?.id || null,
+    selectedReportId: state.selectedReportId || null,
+    auditTrail: state.auditTrail,
+  }
+}
+
+function persistOperationalState() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(getPersistableStateSnapshot()))
+  } catch (error) {
+    console.warn('State persistence skipped:', error)
+  }
+}
+
+function hydrateStateFromStorage() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return
+  }
+
+  try {
+    const rawSnapshot = window.localStorage.getItem(STATE_STORAGE_KEY)
+    if (!rawSnapshot) {
+      return
+    }
+
+    const snapshot = JSON.parse(rawSnapshot)
+    if (!snapshot || snapshot.version !== STATE_STORAGE_VERSION) {
+      return
+    }
+
+    if (!Array.isArray(snapshot.reports) || !snapshot.reports.length) {
+      return
+    }
+
+    const restoredReports = snapshot.reports.map((report) => enrichReportForWorkflow(report))
+    const restoredAuditTrail = Array.isArray(snapshot.auditTrail)
+      ? snapshot.auditTrail
+          .map((entry) => ({
+            ...entry,
+            eventId: entry.eventId || `EV-${entry.id || createClientRequestId('event')}`,
+            requestId: entry.requestId || createClientRequestId('restored'),
+            metadata: entry.metadata || {},
+          }))
+          .slice(0, AUDIT_TRAIL_LIMIT)
+      : []
+
+    const highestReportNumericId = restoredReports
+      .map((report) => Number(String(report.id || '').replace(/[^0-9]/g, '')))
+      .filter((value) => Number.isFinite(value))
+      .reduce((max, value) => Math.max(max, value), 1044)
+
+    state.reports = restoredReports
+    state.nextId = Math.max(highestReportNumericId + 1, Number(snapshot.nextId) || 1045)
+    state.auditTrail = restoredAuditTrail
+    state.nextAuditId = Math.max(Number(snapshot.nextAuditId) || 1, restoredAuditTrail.length + 1)
+    state.nextEventId = Math.max(Number(snapshot.nextEventId) || 1, restoredAuditTrail.length + 1)
+
+    const restoredLastAnalysis = restoredReports.find((report) => report.id === snapshot.lastAnalysisId) || restoredReports[0]
+    state.lastAnalysis = restoredLastAnalysis || null
+    state.selectedReportId =
+      restoredReports.find((report) => report.id === snapshot.selectedReportId)?.id ||
+      restoredLastAnalysis?.id ||
+      restoredReports[0]?.id ||
+      null
+  } catch (error) {
+    console.warn('Failed to restore saved state:', error)
+  }
+}
+
+function logAuditEvent(type, reportId, message, metadata = {}) {
+  const requestId = metadata.requestId || createClientRequestId(type)
+
   state.auditTrail = [
     {
       id: `AT-${state.nextAuditId++}`,
+      eventId: `EV-${state.nextEventId++}`,
+      requestId,
       type,
       reportId,
       message,
       timestamp: new Date().toISOString(),
+      metadata: {
+        ...metadata,
+        requestId,
+      },
     },
     ...state.auditTrail,
   ].slice(0, AUDIT_TRAIL_LIMIT)
@@ -995,14 +1117,16 @@ function buildAnalytics(reports) {
 }
 
 const seededReports = rawSeedReports.map((report) => enrichReportForWorkflow(hydrateSeedReport(report)))
+const seedAudit = buildSeedAuditTrail(seededReports)
 
 const state = {
   reports: seededReports,
   nextId: 1045,
-  nextAuditId: 1,
+  nextAuditId: seedAudit.nextAuditId,
+  nextEventId: seedAudit.nextEventId,
   lastAnalysis: null,
   selectedReportId: seededReports[0]?.id || null,
-  auditTrail: [],
+  auditTrail: seedAudit.auditTrail,
   backend: {
     available: false,
     geminiConfigured: false,
@@ -1020,14 +1144,8 @@ const state = {
   },
 }
 
-state.lastAnalysis = state.reports[0]
-state.auditTrail = state.reports.map((report, index) => ({
-  id: `AT-${state.nextAuditId++}`,
-  type: 'analyze',
-  reportId: report.id,
-  message: `Case ${report.id} entered the queue with ${report.urgency.toLowerCase()} urgency and ${report.confidence}% confidence.`,
-  timestamp: new Date(Date.now() - (index + 1) * 60000).toISOString(),
-}))
+state.lastAnalysis = state.reports[0] || null
+hydrateStateFromStorage()
 
 function render() {
   const counts = summarizeCounts(state.reports)
@@ -1134,7 +1252,7 @@ function render() {
               <div class="audit-topline">
                 <span>${sanitize(getAuditTypeLabel(entry.type))}</span>
                 <strong>${sanitize(entry.reportId)}</strong>
-                <small>${sanitize(formatAuditTime(entry.timestamp))}</small>
+                <small>${sanitize(entry.eventId || entry.id)} | ${sanitize(entry.requestId || 'n/a')} | ${sanitize(formatAuditTime(entry.timestamp))}</small>
               </div>
               <p>${sanitize(entry.message)}</p>
             </article>
@@ -1635,6 +1753,8 @@ function render() {
       </main>
     </div>
   `
+
+  persistOperationalState()
  
   const form = document.getElementById('report-form')
   form.addEventListener('submit', handleSubmit)
@@ -1730,7 +1850,7 @@ function updateReport(reportId, updater) {
   return updatedReport
 }
 
-function assignVolunteerToReport(reportId, volunteerId, sourceLabel) {
+function assignVolunteerToReport(reportId, volunteerId, sourceLabel, requestId = createClientRequestId('assign')) {
   const volunteer = findVolunteerById(volunteerId)
 
   if (!volunteer) {
@@ -1765,7 +1885,12 @@ function assignVolunteerToReport(reportId, volunteerId, sourceLabel) {
     message: `${volunteer.name} assigned to ${reportId}.`,
   }
 
-  logAuditEvent('assign', reportId, `Assigned ${volunteer.name} to ${reportId} via ${sourceLabel}.`)
+  logAuditEvent('assign', reportId, `Assigned ${volunteer.name} to ${reportId} via ${sourceLabel}.`, {
+    requestId,
+    action: 'assign',
+    volunteerId: volunteer.id,
+    sourceLabel,
+  })
   render()
 }
 
@@ -1782,6 +1907,7 @@ function handleCaseSelection(event) {
 
 function handlePriorityOverride(event) {
   event.preventDefault()
+  const requestId = createClientRequestId('override')
 
   const reportId = event.currentTarget.getAttribute('data-report-id')
   if (!reportId) {
@@ -1831,12 +1957,21 @@ function handlePriorityOverride(event) {
     'override',
     reportId,
     `Priority updated from ${updatedReport.manualOverride.previousUrgency}/${updatedReport.manualOverride.previousScore}% to ${urgency}/${score}%.`,
+    {
+      requestId,
+      action: 'override',
+      previousUrgency: updatedReport.manualOverride.previousUrgency,
+      previousScore: updatedReport.manualOverride.previousScore,
+      nextUrgency: urgency,
+      nextScore: score,
+    },
   )
 
   render()
 }
 
 function handleAssignVolunteer(event) {
+  const requestId = createClientRequestId('assign')
   const reportId = event.currentTarget.getAttribute('data-assign-report')
   const volunteerId = event.currentTarget.getAttribute('data-volunteer-id')
 
@@ -1844,10 +1979,11 @@ function handleAssignVolunteer(event) {
     return
   }
 
-  assignVolunteerToReport(reportId, volunteerId, 'quick action')
+  assignVolunteerToReport(reportId, volunteerId, 'quick action', requestId)
 }
 
 function handleAssignFromPicker(event) {
+  const requestId = createClientRequestId('assign')
   const reportId = event.currentTarget.getAttribute('data-assign-from-select')
 
   if (!reportId) {
@@ -1856,10 +1992,11 @@ function handleAssignFromPicker(event) {
 
   const picker = document.getElementById(`assignment-select-${reportId}`)
   const volunteerId = picker?.value || ''
-  assignVolunteerToReport(reportId, volunteerId, 'assignment picker')
+  assignVolunteerToReport(reportId, volunteerId, 'assignment picker', requestId)
 }
 
 function handleUnassignVolunteer(event) {
+  const requestId = createClientRequestId('unassign')
   const reportId = event.currentTarget.getAttribute('data-unassign-report')
 
   if (!reportId) {
@@ -1880,11 +2017,15 @@ function handleUnassignVolunteer(event) {
     message: `Volunteer unassigned from ${reportId}.`,
   }
 
-  logAuditEvent('assign', reportId, `Removed volunteer assignment from ${reportId}.`)
+  logAuditEvent('assign', reportId, `Removed volunteer assignment from ${reportId}.`, {
+    requestId,
+    action: 'unassign',
+  })
   render()
 }
 
 async function handleCsvImport(event) {
+  const requestId = createClientRequestId('csv')
   const file = event.target.files?.[0]
 
   if (!file) {
@@ -1937,10 +2078,19 @@ async function handleCsvImport(event) {
           })
 
           duplicateFlagCount += 1
-          logAuditEvent('duplicate-flag', report.id, `CSV intake flagged ${report.id} as a potential duplicate of ${duplicateMatch.report.id}.`)
+          logAuditEvent('duplicate-flag', report.id, `CSV intake flagged ${report.id} as a potential duplicate of ${duplicateMatch.report.id}.`, {
+            requestId,
+            action: 'csv-duplicate-flag',
+            matchedReportId: duplicateMatch.report.id,
+          })
         }
 
-        logAuditEvent('analyze', report.id, `CSV intake analyzed ${report.id} with ${report.confidence}% confidence.`)
+        logAuditEvent('analyze', report.id, `CSV intake analyzed ${report.id} with ${report.confidence}% confidence.`, {
+          requestId,
+          action: 'csv-analyze',
+          provider: report.provider,
+          confidence: report.confidence,
+        })
         importedCount += 1
         return report
       })
@@ -1976,6 +2126,7 @@ async function handleCsvImport(event) {
 
 async function handleSubmit(event) {
   event.preventDefault()
+  const requestId = createClientRequestId('analyze')
 
   const formData = new FormData(event.currentTarget)
   const incident = normalizeFormValue(formData, 'incident')
@@ -2023,12 +2174,19 @@ async function handleSubmit(event) {
   render()
 
   let newReport
+  let providerRequestId = requestId
+  let providerAttempts = 1
+  let providerLatencyMs = 0
+  let providerCode = ''
+  let fallbackReason = ''
+  let fallbackUsed = false
 
   try {
     const response = await fetch('/api/analyze-report', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-client-request-id': requestId,
       },
       body: JSON.stringify({
         incident,
@@ -2038,12 +2196,24 @@ async function handleSubmit(event) {
       }),
     })
 
+    providerRequestId = response.headers.get('x-request-id') || providerRequestId
+    const payload = await response.json().catch(() => ({}))
+
     if (!response.ok) {
-      const errorPayload = await response.json().catch(() => ({}))
-      throw new Error(errorPayload.error || 'Backend analysis failed.')
+      const providerError = new Error(payload.error || 'Backend analysis failed.')
+      providerError.code = payload.code || 'BACKEND_ERROR'
+      providerError.retryable = Boolean(payload.retryable)
+      providerError.fallbackReason = payload.fallbackReason || 'backend_error'
+      providerError.requestId = payload.requestId || providerRequestId
+      providerError.attempts = payload.attempts || 1
+      providerError.latencyMs = payload.latencyMs || 0
+      throw providerError
     }
 
-    const payload = await response.json()
+    providerRequestId = payload.requestId || providerRequestId
+    providerAttempts = payload.attempts || 1
+    providerLatencyMs = payload.latencyMs || 0
+
     newReport = buildReportFromBackend({
       incident,
       location,
@@ -2058,9 +2228,16 @@ async function handleSubmit(event) {
     state.backend.model = payload.model || state.backend.model || 'gemini-2.5-flash'
     state.analysisStatus = {
       state: 'success',
-      message: `Gemini analysis completed using ${payload.model || 'the configured model'}.`,
+      message: `Gemini analysis completed using ${payload.model || 'the configured model'}${providerAttempts > 1 ? ` after ${providerAttempts} attempts` : ''}.`,
     }
   } catch (error) {
+    fallbackUsed = true
+    providerCode = error.code || 'BACKEND_ERROR'
+    fallbackReason = error.fallbackReason || 'backend_error'
+    providerRequestId = error.requestId || providerRequestId
+    providerAttempts = error.attempts || providerAttempts
+    providerLatencyMs = error.latencyMs || providerLatencyMs
+
     const extracted = extractFromText(incident, location, support, source)
     newReport = {
       id: createReportId(),
@@ -2086,7 +2263,7 @@ async function handleSubmit(event) {
 
     state.analysisStatus = {
       state: 'fallback',
-      message: `${error.message} Using the local fallback analysis path for this run.`,
+      message: `${error.message}${providerCode ? ` [${providerCode}]` : ''} Using the local fallback analysis path for this run.`,
     }
   }
 
@@ -2111,7 +2288,13 @@ async function handleSubmit(event) {
       message: `Potential duplicate with ${duplicateMatch.report.id}. The report was still added for manual review.`,
     }
 
-    logAuditEvent('duplicate-flag', newReport.id, `New report ${newReport.id} was flagged as a potential duplicate of ${duplicateMatch.report.id}.`)
+    logAuditEvent('duplicate-flag', newReport.id, `New report ${newReport.id} was flagged as a potential duplicate of ${duplicateMatch.report.id}.`, {
+      requestId: providerRequestId,
+      action: 'duplicate-flag',
+      matchedReportId: duplicateMatch.report.id,
+      providerCode,
+      fallbackReason,
+    })
   }
 
   newReport = enrichReportForWorkflow(newReport)
@@ -2120,7 +2303,17 @@ async function handleSubmit(event) {
   state.lastAnalysis = newReport
   state.selectedReportId = newReport.id
 
-  logAuditEvent('analyze', newReport.id, `${newReport.provider} analyzed ${newReport.id} with ${newReport.confidence}% confidence.`)
+  logAuditEvent('analyze', newReport.id, `${newReport.provider} analyzed ${newReport.id} with ${newReport.confidence}% confidence.`, {
+    requestId: providerRequestId,
+    action: 'analyze',
+    provider: newReport.provider,
+    confidence: newReport.confidence,
+    attempts: providerAttempts,
+    latencyMs: providerLatencyMs,
+    fallbackUsed,
+    providerCode,
+    fallbackReason,
+  })
 
   render()
   event.currentTarget.reset()

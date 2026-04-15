@@ -5,6 +5,8 @@
   "description": "CommunityTriage demo with a minimal Node backend for Gemini-powered report analysis.",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "evaluate": "node evaluation/run-evaluation.js",
+    "evaluate:offline": "node evaluation/run-evaluation.js --offline"
   }
 }

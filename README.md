@@ -44,10 +44,13 @@ CommunityTriage is designed for exactly this workflow.
 
 - Confidence scores displayed in the case view
 - Explainable score breakdown for each analyzed case
+- Transient Gemini retry with backoff before fallback
 - Duplicate review flags instead of hard-blocking
 - Manual urgency and priority override controls
 - Assignment reasoning breakdown per case
 - Action-level audit trail for analyze, override, and assignment events
+- Request IDs and event IDs for action traceability
+- Persisted queue state and audit history across browser refresh
 
 ## Run locally
 
@@ -78,7 +81,43 @@ If GEMINI_API_KEY is not set, the app remains usable through the local fallback 
 	Returns backend status and Gemini configuration state.
 
 - POST /api/analyze-report
-	Accepts incident text and optional hints, returns structured analysis.
+	Accepts incident text and optional hints, returns structured analysis with request IDs, retry metadata, and provider reason codes when errors occur.
+
+## Evaluation harness
+
+CommunityTriage includes a reproducible gold-dataset evaluation flow under `evaluation/`.
+
+- Gold dataset: `evaluation/gold-dataset.json`
+- Evaluation script: `evaluation/run-evaluation.js`
+- Latest output: `evaluation/latest-metrics.json`
+
+Run evaluation:
+
+```powershell
+npm run evaluate
+```
+
+Run deterministic local baseline (no model calls):
+
+```powershell
+npm run evaluate:offline
+```
+
+Current metrics snapshot (`gemini-2.5-flash`, `phase1-gold-v1`):
+Values can vary run-to-run depending on model demand and fallback usage.
+
+| Metric | Value |
+| --- | --- |
+| Total cases | 12 |
+| Gemini cases | 4 |
+| Fallback cases | 8 |
+| Fallback rate | 66.7% |
+| Issue type accuracy | 91.7% |
+| Urgency accuracy | 91.7% |
+| Location accuracy | 100.0% |
+| Average extraction score | 94.5% |
+| Average latency | 3084 ms |
+| P95 latency | 5410 ms |
 
 ## Suggested walkthrough for evaluators
 
@@ -95,7 +134,7 @@ Current scope focuses on high-trust triage and volunteer coordination for Phase 
 
 Planned next steps include:
 
-- stronger retry and resiliency behavior for model demand spikes
-- evaluation harness for extraction quality metrics
-- persistent storage for reports and audit events
+- CI and automated tests for scoring, duplicate logic, and API behavior
+- stronger deployment hardening and production observability
+- richer governance telemetry for review workflows
 - expanded ingestion paths such as OCR and document uploads

@@ -282,7 +282,7 @@ function createHybridScoreBreakdown({ confidence, urgency, fallbackScore, score 
     {
       label: 'Deterministic signals',
       value: `${ruleContribution} pts`,
-      detail: 'Rule-based cues keep the score stable, auditable, and demo-safe.',
+      detail: 'Rule-based cues keep the score stable and auditable when model output varies.',
     },
     {
       label: 'Final hybrid score',
@@ -297,18 +297,18 @@ function hydrateSeedReport(report) {
     ...report,
     rawText: report.summary,
     affectedGroup: 'Local households',
-    provider: 'Rule-based seed data',
+    provider: 'Baseline case data',
     duplicateOf: '',
     scoreBreakdown: createScoreBreakdown([
       {
-        label: 'Seeded priority',
+        label: 'Baseline priority',
         value: `${report.score} pts`,
-        detail: 'This sample case is included to make the dashboard feel active on first load.',
+        detail: 'This baseline case initializes the queue and preserves realistic starting conditions.',
       },
       {
         label: 'Operational urgency',
         value: `${report.urgency}`,
-        detail: 'The seeded dataset mirrors the categories used in live triage.',
+        detail: 'The baseline dataset reflects the categories used in live triage operations.',
       },
     ]),
     extractionFields: buildExtractionFields({
@@ -320,7 +320,7 @@ function hydrateSeedReport(report) {
       support: report.need,
       source: report.source,
       affectedGroup: 'Local households',
-      provider: 'Rule-based seed data',
+      provider: 'Baseline case data',
       duplicateOf: '',
     }),
   }
@@ -809,7 +809,7 @@ function findDuplicateMatch(candidateReport) {
     return null
   }
 
-  const threshold = topMatch.report.provider === 'Rule-based seed data' ? 0.78 : 0.82
+  const threshold = topMatch.report.provider === 'Baseline case data' ? 0.78 : 0.82
 
   if (topMatch.duplicateScore < threshold) {
     return null
@@ -901,7 +901,7 @@ function buildImportedReport(row) {
       {
         label: 'Import path',
         value: 'Batch CSV',
-        detail: 'CSV rows are normalized locally for fast bulk intake during demos.',
+        detail: 'CSV rows are normalized locally for fast bulk intake and triage preview.',
       },
     ],
     match: extracted.match,
@@ -1168,15 +1168,15 @@ function render() {
       <main class="content">
         <section class="hero" id="overview">
           <div>
-            <span class="eyebrow">Phase 1 prototype hardening</span>
+            <span class="eyebrow">Operational intelligence for NGOs</span>
             <h2>Turn scattered reports into clear action.</h2>
             <p>
               Intake community reports, structure the need, rank urgency, and recommend the best volunteer response with visible reasoning.
             </p>
             <div class="hero-notes">
-              <span>1. Load a demo scenario</span>
+              <span>1. Capture an incoming report</span>
               <span>2. Analyze the report</span>
-              <span>3. Show ranked action and reasoning</span>
+              <span>3. Review priority and assign response</span>
             </div>
           </div>
 
@@ -1210,7 +1210,7 @@ function render() {
           <article class="metric-card">
             <span>Active volunteers</span>
             <strong>${counts.activeVolunteers}</strong>
-            <small>Profiles available for matching in this demo dataset.</small>
+            <small>Profiles currently available for field matching.</small>
           </article>
           <article class="metric-card">
             <span>Review queue</span>
@@ -1464,13 +1464,13 @@ function render() {
 
           <div class="demo-shortcuts">
             <div>
-              <span>Demo shortcuts</span>
-              <p>Use a preset to keep the judging walkthrough fast and repeatable.</p>
+              <span>Quick starters</span>
+              <p>Use a sample report to prefill the form and review triage behavior quickly.</p>
             </div>
             <div class="shortcut-actions">
-              <button type="button" class="demo-preset" data-demo-key="water">Load water crisis</button>
-              <button type="button" class="demo-preset" data-demo-key="flood">Load flood relief</button>
-              <button type="button" class="demo-preset" data-demo-key="medical">Load medical camp</button>
+              <button type="button" class="demo-preset" data-demo-key="water">Use water response sample</button>
+              <button type="button" class="demo-preset" data-demo-key="flood">Use flood response sample</button>
+              <button type="button" class="demo-preset" data-demo-key="medical">Use medical camp sample</button>
             </div>
           </div>
 
@@ -1595,8 +1595,8 @@ function render() {
         <section class="panel" id="insights">
           <div class="panel-header">
             <div>
-              <span>Pitch support</span>
-              <h3>What to say during the demo</h3>
+              <span>Operational insights</span>
+              <h3>How this platform drives action</h3>
             </div>
           </div>
 
@@ -1606,8 +1606,8 @@ function render() {
               <p>NGOs receive scattered reports and need a fast way to structure, rank, and act on them.</p>
             </div>
             <div>
-              <strong>Current prototype</strong>
-              <p>This build now includes Gemini-backed analysis, low-confidence flags, manual overrides, one-click assignment actions, and explicit fallback when the API is unavailable.</p>
+              <strong>Current capabilities</strong>
+              <p>The platform includes Gemini-backed analysis, low-confidence flags, manual overrides, one-click assignment actions, and explicit fallback when the API is unavailable.</p>
             </div>
             <div>
               <strong>Trust layer</strong>
@@ -1615,7 +1615,7 @@ function render() {
             </div>
             <div>
               <strong>Delivery focus</strong>
-              <p>An audit trail captures analyze, duplicate flag, override, and assignment events to show human-in-the-loop governance during demos.</p>
+              <p>An audit trail captures analyze, duplicate flag, override, and assignment events to maintain human-in-the-loop governance.</p>
             </div>
           </div>
         </section>
@@ -2086,7 +2086,7 @@ async function handleSubmit(event) {
 
     state.analysisStatus = {
       state: 'fallback',
-      message: `${error.message} Using the local fallback engine for this demo run.`,
+      message: `${error.message} Using the local fallback analysis path for this run.`,
     }
   }
 

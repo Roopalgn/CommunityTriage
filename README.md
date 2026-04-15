@@ -1,13 +1,60 @@
 # CommunityTriage
 
-Explainable NGO operations dashboard that turns scattered community reports into structured needs, prioritizes urgent cases, and matches the right volunteers to the right tasks. Push 8 extends the Push 7 Gemini + intake pipeline with human review controls, assignment actions, and an in-product audit trail.
+CommunityTriage is an AI-assisted operations dashboard for NGOs that turns unstructured community reports into prioritized, explainable action plans.
+
+## Why this matters
+
+Community organizations often receive urgent requests from many channels at once: field notes, forms, hotlines, and spreadsheets. Teams need a fast way to:
+
+- structure each report clearly
+- rank urgency with confidence
+- assign the right volunteer quickly
+- keep decisions transparent for accountability
+
+CommunityTriage is designed for exactly this workflow.
+
+## What the platform does
+
+- Ingests free-text incident reports
+- Uses Google Gemini to extract structured fields
+- Applies hybrid scoring (model confidence plus deterministic safeguards)
+- Flags low-confidence and possible duplicate cases for review
+- Recommends volunteer matches using skill, location, and availability signals
+- Supports manual override and assignment decisions
+- Maintains an audit trail of key operational actions
+- Supports batch intake through CSV upload
+
+## End-to-end workflow
+
+1. Intake report
+2. AI extraction and normalization
+3. Priority scoring and ranking
+4. Human review for flagged cases
+5. Volunteer assignment or reassignment
+6. Audit logging for governance and traceability
+
+## Architecture
+
+- Frontend: single-page dashboard built with vanilla JavaScript and CSS
+- Backend: lightweight Node.js HTTP server
+- AI integration: Google Gemini via server-side API call
+- Fallback mode: local rule-based extraction when Gemini is unavailable
+
+## Reliability and trust features
+
+- Confidence scores displayed in the case view
+- Explainable score breakdown for each analyzed case
+- Duplicate review flags instead of hard-blocking
+- Manual urgency and priority override controls
+- Assignment reasoning breakdown per case
+- Action-level audit trail for analyze, override, and assignment events
 
 ## Run locally
 
-1. Install Node.js.
-2. Create a local environment file from `.env.example`.
-3. Add your Gemini API key to `.env.local`.
-4. Start the app:
+1. Install Node.js 18 or newer.
+2. Create a local environment file.
+3. Add your Gemini API key.
+4. Start the server.
 
 ```powershell
 cd "C:\Users\roopa\OneDrive\Desktop\Solutions Challenge\CommunityTriage"
@@ -15,68 +62,40 @@ Copy-Item .env.example .env.local
 npm start
 ```
 
-The app will run at `http://localhost:3000`.
+Open http://localhost:3000 in your browser.
 
-If `GEMINI_API_KEY` is missing, the UI still works and clearly falls back to the local rule-based analyzer.
+If GEMINI_API_KEY is not set, the app remains usable through the local fallback analysis path.
 
-## Current Push 8 scope
+## Environment variables
 
-- Dashboard shell with navigation
-- Seeded community report data
-- Seeded volunteer data
-- Priority ranking display
-- Filters, hotspot analytics, and extraction trace
-- Gemini-backed triage through a Node API route
-- Rule-based fallback with softer duplicate review
-- CSV batch intake for community reports
-- Hybrid priority score breakdown for the latest case
-- Expanded case detail with manual priority override
-- Low-confidence and duplicate review flags
-- One-click assign and unassign actions
-- Volunteer match reasoning breakdown
-- Lightweight audit trail for analyze, duplicate flag, override, and assignment actions
+- GEMINI_API_KEY: required for Gemini analysis
+- GEMINI_MODEL: optional, defaults to gemini-2.5-flash
+- PORT: optional, defaults to 3000
 
-## Current workflow
+## API endpoints
 
-- Report intake form for free-text incident submissions
-- Backend analysis route at `/api/analyze-report`
-- Gemini extraction of issue type, urgency, confidence, affected group, summary, and justification
-- Priority scoring with Gemini plus deterministic signals
-- Duplicate review warnings that flag cases instead of hard-blocking them
-- CSV upload for batch intake using local normalization
-- Hotspot summaries for location and issue clusters
-- Expanded case view for coordinator decisions
-- Manual urgency and score override controls
-- Low-confidence review queue indicators
-- One-click volunteer assign and unassign actions
-- Assignment reasoning breakdown by skill, location, and availability
-- Audit trail entries for analyze, duplicate, override, and assign events
-- Loading, success, and fallback states in the dashboard
-- Live re-render of the dashboard after each new report
+- GET /api/health
+	Returns backend status and Gemini configuration state.
 
-## Google AI path
+- POST /api/analyze-report
+	Accepts incident text and optional hints, returns structured analysis.
 
-- The backend reads `GEMINI_API_KEY` from `.env.local`, `.env`, or the shell environment
-- Requests are sent to Google's `generateContent` endpoint using `gemini-2.5-flash` by default
-- The backend returns structured JSON for the dashboard to merge into the triage workflow
-- If Gemini is unavailable, the frontend explicitly falls back to the local rule-based path
+## Suggested walkthrough for evaluators
 
-## Demo flow
+1. Start from Overview and explain the live queue.
+2. Use a quick starter in Intake or submit your own report.
+3. Run analysis and highlight issue type, urgency, confidence, and rationale.
+4. Open case detail, apply a manual override, then assign or unassign a volunteer.
+5. Show duplicate or low-confidence flags and explain review flow.
+6. End with the audit trail to demonstrate decision transparency.
 
-1. Open the dashboard and point to the triage summary.
-2. Load one of the demo presets from the intake section.
-3. Click analyze to show Gemini extraction, ranking, and volunteer matching.
-4. Open a case detail, apply a manual override, and assign/unassign a volunteer.
-5. Use hotspot summaries, review flags, and match reasoning to explain decisions.
-6. Point to the audit trail to show transparent human-in-the-loop operations.
+## Current scope and next steps
 
-## Suggested pitch order
+Current scope focuses on high-trust triage and volunteer coordination for Phase 1 submission.
 
-- Problem statement and why it matters
-- Live demo using a preset report
-- Gemini-backed triage plus fallback reliability
-- Filters, hotspots, duplicate review, and low-confidence flags
-- Manual overrides, one-click assignment, and reasoning transparency
-- Audit trail and governance story for NGO trust
-- CSV intake and hybrid scoring as proof of operational depth
-- Next steps: OCR, PDF intake, richer routing, and deeper governance
+Planned next steps include:
+
+- stronger retry and resiliency behavior for model demand spikes
+- evaluation harness for extraction quality metrics
+- persistent storage for reports and audit events
+- expanded ingestion paths such as OCR and document uploads

@@ -74,6 +74,27 @@ If GEMINI_API_KEY is not set, the app remains usable through the local fallback 
 - GEMINI_API_KEY: required for Gemini analysis
 - GEMINI_MODEL: optional, defaults to gemini-2.5-flash
 - PORT: optional, defaults to 3000
+- GEMINI_MAX_RETRIES: optional, defaults to 2
+- GEMINI_RETRY_BASE_MS: optional, defaults to 350
+
+## Testing and CI
+
+Run local validation:
+
+```powershell
+npm run check:syntax
+npm test
+```
+
+CI workflow file:
+
+- `.github/workflows/ci.yml`
+
+The pipeline runs:
+
+- syntax checks
+- unit and integration tests
+- offline evaluation baseline
 
 ## API endpoints
 
@@ -119,6 +140,19 @@ Values can vary run-to-run depending on model demand and fallback usage.
 | Average latency | 3084 ms |
 | P95 latency | 5410 ms |
 
+## Deployment and operations
+
+Production deployment runbook and environment checklist:
+
+- `DEPLOYMENT.md`
+
+The runbook includes:
+
+- pre-deploy and post-deploy validation
+- Cloud Run deployment steps
+- rollback strategy
+- production operations checklist
+
 ## Suggested walkthrough for evaluators
 
 1. Start from Overview and explain the live queue.
@@ -127,6 +161,11 @@ Values can vary run-to-run depending on model demand and fallback usage.
 4. Open case detail, apply a manual override, then assign or unassign a volunteer.
 5. Show duplicate or low-confidence flags and explain review flow.
 6. End with the audit trail to demonstrate decision transparency.
+
+Additional submission resources:
+
+- 2-3 minute narrative script: `JUDGING_SCRIPT.md`
+- desktop/mobile and accessibility QA checklist: `WALKTHROUGH_CHECKLIST.md`
 
 ## Current scope and next steps
 

@@ -160,6 +160,7 @@ const demoScenarios = {
 }
 
 const root = document.getElementById('root')
+const triageCore = typeof window !== 'undefined' ? window.CommunityTriageCore || null : null
 
 function sanitize(text) {
   return String(text).replace(/[&<>"']/g, (character) => {
@@ -177,6 +178,10 @@ function titleCase(value) {
 }
 
 function formatLocation(value) {
+  if (triageCore?.formatLocation) {
+    return triageCore.formatLocation(value, locationAliases)
+  }
+
   const normalized = String(value).trim().toLowerCase()
   const foundAlias = locationAliases.find((alias) => normalized.includes(alias))
   return foundAlias ? titleCase(foundAlias) : titleCase(normalized || 'Community Zone')
@@ -329,6 +334,10 @@ function hydrateSeedReport(report) {
 }
 
 function normalizeUrgency(value) {
+  if (triageCore?.normalizeUrgency) {
+    return triageCore.normalizeUrgency(value)
+  }
+
   const normalized = String(value || '').trim().toLowerCase()
 
   if (normalized === 'critical') {
@@ -343,6 +352,10 @@ function normalizeUrgency(value) {
 }
 
 function clampNumber(value, min, max, fallback) {
+  if (triageCore?.clampNumber) {
+    return triageCore.clampNumber(value, min, max, fallback)
+  }
+
   const numericValue = Number(value)
 
   if (!Number.isFinite(numericValue)) {
@@ -813,6 +826,10 @@ function extractFromText(text, locationInput, supportInput, sourceInput) {
 }
 
 function normalizeRequiredResources(value, fallback) {
+  if (triageCore?.normalizeRequiredResources) {
+    return triageCore.normalizeRequiredResources(value, fallback)
+  }
+
   if (Array.isArray(value)) {
     const cleaned = value.map((entry) => String(entry).trim()).filter(Boolean)
     if (cleaned.length) {
@@ -841,7 +858,13 @@ function buildReportFromBackend({ incident, location, support, source, analysis,
   const reason = String(analysis.justification || fallback.reason).trim()
   const score = Math.min(
     99,
-    Math.round(confidence * 0.4 + getUrgencyScore(urgency) * 0.35 + fallback.score * 0.25),
+    triageCore?.calculateHybridPriorityScore
+      ? triageCore.calculateHybridPriorityScore({
+        confidence,
+        urgency,
+        fallbackScore: fallback.score,
+      })
+      : Math.round(confidence * 0.4 + getUrgencyScore(urgency) * 0.35 + fallback.score * 0.25),
   )
 
   return {
@@ -896,6 +919,10 @@ function tokenize(text) {
 }
 
 function calculateDuplicateSignals(candidateReport, existingReport) {
+  if (triageCore?.calculateDuplicateSignals) {
+    return triageCore.calculateDuplicateSignals(candidateReport, existingReport)
+  }
+
   const candidateTokens = tokenize(`${candidateReport.title} ${candidateReport.summary} ${candidateReport.need} ${candidateReport.rawText}`)
   const existingTokens = tokenize(`${existingReport.title} ${existingReport.summary} ${existingReport.need} ${existingReport.rawText || ''}`)
   const sharedTokens = candidateTokens.filter((token) => existingTokens.includes(token))
@@ -1172,7 +1199,7 @@ function render() {
     ? state.backend.model
     : 'Add GEMINI_API_KEY to enable Gemini'
   const statusMarkup = state.analysisStatus.message
-    ? `<div class="status-banner ${state.analysisStatus.state}">${sanitize(state.analysisStatus.message)}</div>`
+    ? `<div class="status-banner ${state.analysisStatus.state}" role="status" aria-live="polite">${sanitize(state.analysisStatus.message)}</div>`
     : ''
   const analyzeButtonText = state.analysisStatus.state === 'loading' ? 'Analyzing with Gemini...' : 'Analyze report'
   const locationHotspotsMarkup = analytics.locationHotspots.length
@@ -1272,7 +1299,7 @@ function render() {
 
         <nav>
           ${navItems
-            .map((item, index) => `<a href="#${item.toLowerCase()}" class="${index === 0 ? 'active' : ''}">${item}</a>`)
+            .map((item, index) => `<a href="#${item.toLowerCase()}" class="${index === 0 ? 'active' : ''}" ${index === 0 ? 'aria-current="page"' : ''}>${item}</a>`)
             .join('')}
         </nav>
 
@@ -1397,18 +1424,18 @@ function render() {
             </div>
 
             <div class="filter-bar">
-              <input id="case-search" type="search" value="${sanitize(state.filters.search)}" placeholder="Search location, issue, or source" />
-              <select id="urgency-filter">
+              <input id="case-search" type="search" value="${sanitize(state.filters.search)}" placeholder="Search location, issue, or source" aria-label="Search cases" />
+              <select id="urgency-filter" aria-label="Filter by urgency">
                 ${['All', 'Critical', 'High', 'Medium']
                   .map((value) => `<option value="${value}" ${state.filters.urgency === value ? 'selected' : ''}>${value}</option>`)
                   .join('')}
               </select>
-              <select id="location-filter">
+              <select id="location-filter" aria-label="Filter by location">
                 ${locations
                   .map((value) => `<option value="${sanitize(value)}" ${state.filters.location === value ? 'selected' : ''}>${sanitize(value)}</option>`)
                   .join('')}
               </select>
-              <select id="sort-filter">
+              <select id="sort-filter" aria-label="Sort case list">
                 ${[
                   { value: 'priority', label: 'Sort by priority' },
                   { value: 'confidence', label: 'Sort by confidence' },
@@ -1419,7 +1446,7 @@ function render() {
               </select>
             </div>
 
-            <div class="report-list">
+            <div class="report-list" aria-live="polite">
               ${filteredReports
                 .map(
                   (report) => `
@@ -1451,7 +1478,7 @@ function render() {
                         <small>${sanitize(report.reason)}</small>
                       </div>
                       <div class="report-actions">
-                        <button type="button" class="ghost-button select-case" data-report-id="${sanitize(report.id)}">${selectedReport?.id === report.id ? 'Selected case' : 'View details'}</button>
+                        <button type="button" class="ghost-button select-case" data-report-id="${sanitize(report.id)}" aria-pressed="${selectedReport?.id === report.id ? 'true' : 'false'}">${selectedReport?.id === report.id ? 'Selected case' : 'View details'}</button>
                         ${report.assignedVolunteerId
                           ? `<button type="button" class="ghost-button danger" data-unassign-report="${sanitize(report.id)}">Unassign</button>`
                           : `<button type="button" data-assign-report="${sanitize(report.id)}" data-volunteer-id="${sanitize(report.match?.id || '')}" ${report.match?.id ? '' : 'disabled'}>Assign suggested</button>`}
@@ -1622,7 +1649,7 @@ function render() {
             </label>
 
             <div class="form-actions">
-              <button type="submit" id="analyze-button" ${state.analysisStatus.state === 'loading' ? 'disabled' : ''}>${sanitize(analyzeButtonText)}</button>
+              <button type="submit" id="analyze-button" ${state.analysisStatus.state === 'loading' ? 'disabled' : ''} aria-busy="${state.analysisStatus.state === 'loading' ? 'true' : 'false'}">${sanitize(analyzeButtonText)}</button>
               <small>Reports are sent to the backend for Gemini analysis when configured, with rule-based fallback if the API is unavailable. Potential duplicates are flagged instead of hard-blocked.</small>
             </div>
           </form>
@@ -1746,7 +1773,7 @@ function render() {
             </div>
           </div>
 
-          <div class="audit-list">
+          <div class="audit-list" role="log" aria-live="polite">
             ${auditTrailMarkup}
           </div>
         </section>

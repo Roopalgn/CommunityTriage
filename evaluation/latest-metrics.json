@@ -1,28 +1,28 @@
 {
-  "generatedAt": "2026-04-15T16:21:43.381Z",
+  "generatedAt": "2026-04-16T00:43:51.879Z",
   "datasetVersion": "phase1-gold-v1",
-  "offline": false,
-  "model": "gemini-2.5-flash",
+  "offline": true,
+  "model": "fallback-local",
   "metrics": {
     "totalCases": 12,
-    "geminiCases": 4,
-    "fallbackCases": 8,
-    "fallbackRatePct": 66.7,
-    "issueTypeAccuracyPct": 91.7,
-    "urgencyAccuracyPct": 91.7,
+    "geminiCases": 0,
+    "fallbackCases": 12,
+    "fallbackRatePct": 100,
+    "issueTypeAccuracyPct": 100,
+    "urgencyAccuracyPct": 100,
     "locationAccuracyPct": 100,
-    "averageExtractionScorePct": 94.5,
-    "averageLatencyMs": 3084,
-    "p95LatencyMs": 5410
+    "averageExtractionScorePct": 100,
+    "averageLatencyMs": 0,
+    "p95LatencyMs": 1
   },
   "cases": [
     {
       "id": "G-001",
-      "provider": "gemini",
-      "fallbackUsed": false,
-      "fallbackReason": "",
+      "provider": "fallback-local",
+      "fallbackUsed": true,
+      "fallbackReason": "offline_mode",
       "attempts": 1,
-      "latencyMs": 4301,
+      "latencyMs": 1,
       "prediction": {
         "issueType": "Water shortage",
         "location": "South District",
@@ -42,15 +42,15 @@
     },
     {
       "id": "G-002",
-      "provider": "gemini",
-      "fallbackUsed": false,
-      "fallbackReason": "",
+      "provider": "fallback-local",
+      "fallbackUsed": true,
+      "fallbackReason": "offline_mode",
       "attempts": 1,
-      "latencyMs": 5115,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "Flood relief",
         "location": "Riverside Zone",
-        "urgency": "Critical"
+        "urgency": "High"
       },
       "expected": {
         "issueType": "Flood relief",
@@ -59,20 +59,20 @@
       },
       "comparison": {
         "issueTypeMatch": true,
-        "urgencyMatch": false,
+        "urgencyMatch": true,
         "locationMatch": true,
-        "score": 0.67
+        "score": 1
       }
     },
     {
       "id": "G-003",
-      "provider": "gemini",
-      "fallbackUsed": false,
-      "fallbackReason": "",
+      "provider": "fallback-local",
+      "fallbackUsed": true,
+      "fallbackReason": "offline_mode",
       "attempts": 1,
-      "latencyMs": 5410,
+      "latencyMs": 0,
       "prediction": {
-        "issueType": "Food support",
+        "issueType": "Medical support",
         "location": "Central Ward",
         "urgency": "High"
       },
@@ -82,19 +82,19 @@
         "urgency": "High"
       },
       "comparison": {
-        "issueTypeMatch": false,
+        "issueTypeMatch": true,
         "urgencyMatch": true,
         "locationMatch": true,
-        "score": 0.67
+        "score": 1
       }
     },
     {
       "id": "G-004",
-      "provider": "gemini",
-      "fallbackUsed": false,
-      "fallbackReason": "",
+      "provider": "fallback-local",
+      "fallbackUsed": true,
+      "fallbackReason": "offline_mode",
       "attempts": 1,
-      "latencyMs": 4376,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "Food support",
         "location": "West End",
@@ -116,9 +116,9 @@
       "id": "G-005",
       "provider": "fallback-local",
       "fallbackUsed": true,
-      "fallbackReason": "GEMINI_HIGH_DEMAND",
-      "attempts": 3,
-      "latencyMs": 2170,
+      "fallbackReason": "offline_mode",
+      "attempts": 1,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "Education support",
         "location": "East Market",
@@ -140,9 +140,9 @@
       "id": "G-006",
       "provider": "fallback-local",
       "fallbackUsed": true,
-      "fallbackReason": "GEMINI_HIGH_DEMAND",
-      "attempts": 3,
-      "latencyMs": 2102,
+      "fallbackReason": "offline_mode",
+      "attempts": 1,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "Water shortage",
         "location": "North Point",
@@ -164,9 +164,9 @@
       "id": "G-007",
       "provider": "fallback-local",
       "fallbackUsed": true,
-      "fallbackReason": "GEMINI_HIGH_DEMAND",
-      "attempts": 3,
-      "latencyMs": 2203,
+      "fallbackReason": "offline_mode",
+      "attempts": 1,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "General support",
         "location": "Riverside Zone",
@@ -188,9 +188,9 @@
       "id": "G-008",
       "provider": "fallback-local",
       "fallbackUsed": true,
-      "fallbackReason": "GEMINI_HIGH_DEMAND",
-      "attempts": 3,
-      "latencyMs": 2261,
+      "fallbackReason": "offline_mode",
+      "attempts": 1,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "Food support",
         "location": "Central Ward",
@@ -212,9 +212,9 @@
       "id": "G-009",
       "provider": "fallback-local",
       "fallbackUsed": true,
-      "fallbackReason": "GEMINI_HIGH_DEMAND",
-      "attempts": 3,
-      "latencyMs": 2245,
+      "fallbackReason": "offline_mode",
+      "attempts": 1,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "Flood relief",
         "location": "South District",
@@ -236,9 +236,9 @@
       "id": "G-010",
       "provider": "fallback-local",
       "fallbackUsed": true,
-      "fallbackReason": "GEMINI_HIGH_DEMAND",
-      "attempts": 3,
-      "latencyMs": 2215,
+      "fallbackReason": "offline_mode",
+      "attempts": 1,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "Medical support",
         "location": "North Point",
@@ -260,9 +260,9 @@
       "id": "G-011",
       "provider": "fallback-local",
       "fallbackUsed": true,
-      "fallbackReason": "GEMINI_HIGH_DEMAND",
-      "attempts": 3,
-      "latencyMs": 2353,
+      "fallbackReason": "offline_mode",
+      "attempts": 1,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "Water shortage",
         "location": "West End",
@@ -284,9 +284,9 @@
       "id": "G-012",
       "provider": "fallback-local",
       "fallbackUsed": true,
-      "fallbackReason": "GEMINI_HIGH_DEMAND",
-      "attempts": 3,
-      "latencyMs": 2254,
+      "fallbackReason": "offline_mode",
+      "attempts": 1,
+      "latencyMs": 0,
       "prediction": {
         "issueType": "General support",
         "location": "East Market",

@@ -1,12 +1,16 @@
 {
-  "name": "community-triage",
-  "version": "0.1.0",
-  "private": true,
-  "description": "CommunityTriage demo with a minimal Node backend for Gemini-powered report analysis.",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "evaluate": "node evaluation/run-evaluation.js",
-    "evaluate:offline": "node evaluation/run-evaluation.js --offline"
-  }
+    "name":  "community-triage",
+    "version":  "0.1.0",
+    "private":  true,
+    "description":  "CommunityTriage demo with a minimal Node backend for Gemini-powered report analysis.",
+    "scripts":  {
+                    "start":  "node server.js",
+                    "dev":  "node server.js",
+                    "evaluate":  "node evaluation/run-evaluation.js",
+                    "evaluate:offline":  "node evaluation/run-evaluation.js --offline",
+                    "check:syntax":  "node --check app.js \u0026\u0026 node --check server.js \u0026\u0026 node --check evaluation/run-evaluation.js \u0026\u0026 node --check src/triage-core.js",
+                    "test:unit":  "node --test \"tests/unit/**/*.test.js\"",
+                    "test:integration":  "node --test \"tests/integration/**/*.test.js\"",
+                    "test":  "npm run test:unit \u0026\u0026 npm run test:integration"
+                }
 }

@@ -2,6 +2,13 @@
 
 CommunityTriage is an AI-assisted operations dashboard for NGOs that turns unstructured community reports into prioritized, explainable action plans.
 
+## Submission quick links
+
+- Live prototype URL: add your final cloud URL after deployment
+- Repository: this repository
+- Demo video: add your final video link
+- Project deck: add your final deck link
+
 ## Why this matters
 
 Community organizations often receive urgent requests from many channels at once: field notes, forms, hotlines, and spreadsheets. Teams need a fast way to:
@@ -99,10 +106,28 @@ The pipeline runs:
 ## API endpoints
 
 - GET /api/health
-	Returns backend status and Gemini configuration state.
+  Returns backend status and Gemini configuration state.
 
 - POST /api/analyze-report
-	Accepts incident text and optional hints, returns structured analysis with request IDs, retry metadata, and provider reason codes when errors occur.
+  Accepts incident text and optional hints, returns structured analysis with request IDs, retry metadata, and provider reason codes when errors occur.
+
+## Live deployment
+
+- Production URL: https://<replace-with-your-cloud-url>
+- Health endpoint: https://<replace-with-your-cloud-url>/api/health
+
+Latest local health-check proof:
+
+```json
+{
+  "ok": true,
+  "backend": "node",
+  "geminiConfigured": true,
+  "model": "gemini-2.5-flash"
+}
+```
+
+After deployment, replace the placeholder URL and include one real health-check response from production.
 
 ## Evaluation harness
 
@@ -126,19 +151,20 @@ npm run evaluate:offline
 
 Current metrics snapshot (`gemini-2.5-flash`, `phase1-gold-v1`):
 Values can vary run-to-run depending on model demand and fallback usage.
+Last updated from `evaluation/latest-metrics.json`: 2026-04-16T01:05:25.159Z.
 
 | Metric | Value |
 | --- | --- |
 | Total cases | 12 |
-| Gemini cases | 4 |
-| Fallback cases | 8 |
-| Fallback rate | 66.7% |
-| Issue type accuracy | 91.7% |
-| Urgency accuracy | 91.7% |
+| Gemini cases | 1 |
+| Fallback cases | 11 |
+| Fallback rate | 91.7% |
+| Issue type accuracy | 100.0% |
+| Urgency accuracy | 100.0% |
 | Location accuracy | 100.0% |
-| Average extraction score | 94.5% |
-| Average latency | 3084 ms |
-| P95 latency | 5410 ms |
+| Average extraction score | 100.0% |
+| Average latency | 2225 ms |
+| P95 latency | 3838 ms |
 
 ## Deployment and operations
 

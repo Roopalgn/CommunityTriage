@@ -1,3 +1,5 @@
+// Legacy entry point retained for reference.
+// The site now loads main.js.
 const rawSeedReports = [
   {
     id: 'CT-1042',

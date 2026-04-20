@@ -55,6 +55,37 @@ test('analyze endpoint returns fallback-compatible error metadata when Gemini is
   assert.equal(healthPayload.geminiConfigured, false)
   assert.ok(healthPayload.requestId)
 
+  const unsupportedContentTypeResponse = await fetch(`http://localhost:${port}/api/analyze-report`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain',
+      'x-client-request-id': 'test-client-request-unsupported-type',
+    },
+    body: 'incident=plain-text',
+  })
+
+  assert.equal(unsupportedContentTypeResponse.status, 415)
+  const unsupportedContentTypePayload = await unsupportedContentTypeResponse.json()
+  assert.equal(unsupportedContentTypePayload.code, 'UNSUPPORTED_CONTENT_TYPE')
+
+  const tooLargeIncidentResponse = await fetch(`http://localhost:${port}/api/analyze-report`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-client-request-id': 'test-client-request-too-large',
+    },
+    body: JSON.stringify({
+      incident: 'x'.repeat(4501),
+      locationHint: 'South District',
+      supportHint: 'Water',
+      source: 'Test harness',
+    }),
+  })
+
+  assert.equal(tooLargeIncidentResponse.status, 413)
+  const tooLargeIncidentPayload = await tooLargeIncidentResponse.json()
+  assert.equal(tooLargeIncidentPayload.code, 'INCIDENT_TOO_LARGE')
+
   const analyzeResponse = await fetch(`http://localhost:${port}/api/analyze-report`, {
     method: 'POST',
     headers: {

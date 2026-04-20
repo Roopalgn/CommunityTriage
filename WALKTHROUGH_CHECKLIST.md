@@ -11,7 +11,7 @@ Use this checklist before recording demos or sharing judges links.
 
 ## Desktop checklist
 
-- Sidebar content is fully readable and scroll behavior is intentional.
+- Top navigation content is fully readable and sticky behavior is intentional.
 - Hero, metrics, case list, intake, and audit sections render without overlap.
 - Analyze action works for at least one quick starter and one custom report.
 - Override, assign, and unassign all work and update audit trail.

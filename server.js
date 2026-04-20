@@ -12,8 +12,14 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 const GEMINI_MAX_RETRIES = clampInteger(process.env.GEMINI_MAX_RETRIES, 0, 4, 2)
 const GEMINI_RETRY_BASE_MS = clampInteger(process.env.GEMINI_RETRY_BASE_MS, 100, 5000, 350)
+const GEMINI_TIMEOUT_MS = clampInteger(process.env.GEMINI_TIMEOUT_MS, 2000, 60000, 15000)
+const MAX_REQUEST_BYTES = clampInteger(process.env.MAX_REQUEST_BYTES, 16 * 1024, 2 * 1024 * 1024, 256 * 1024)
+const MAX_INCIDENT_CHARS = clampInteger(process.env.MAX_INCIDENT_CHARS, 200, 12000, 4000)
+const RATE_LIMIT_WINDOW_MS = clampInteger(process.env.RATE_LIMIT_WINDOW_MS, 1000, 10 * 60 * 1000, 60 * 1000)
+const RATE_LIMIT_MAX_REQUESTS = clampInteger(process.env.RATE_LIMIT_MAX_REQUESTS, 5, 600, 45)
 
 const RETRYABLE_PROVIDER_STATUS = new Set([429, 503, 504])
+const rateLimitBuckets = new Map()
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -42,10 +48,35 @@ const server = http.createServer(async (request, response) => {
         model: GEMINI_MODEL,
         requestId,
         clientRequestId,
-      }, requestId)
+      }, requestId, clientRequestId)
     }
 
     if (request.method === 'POST' && requestUrl.pathname === '/api/analyze-report') {
+      const rateLimit = applyRateLimit(getClientAddress(request))
+      if (!rateLimit.allowed) {
+        return sendJson(response, 429, {
+          error: 'Too many requests. Please retry shortly.',
+          code: 'RATE_LIMITED',
+          retryable: true,
+          fallbackReason: 'rate_limited',
+          retryAfterSec: rateLimit.retryAfterSec,
+          requestId,
+          clientRequestId,
+        }, requestId, clientRequestId)
+      }
+
+      const contentType = String(request.headers['content-type'] || '').toLowerCase()
+      if (!contentType.includes('application/json')) {
+        return sendJson(response, 415, {
+          error: 'Content-Type must be application/json.',
+          code: 'UNSUPPORTED_CONTENT_TYPE',
+          retryable: false,
+          fallbackReason: 'unsupported_content_type',
+          requestId,
+          clientRequestId,
+        }, requestId, clientRequestId)
+      }
+
       const body = await readJsonBody(request)
       const incident = String(body.incident || '').trim()
 
@@ -57,7 +88,18 @@ const server = http.createServer(async (request, response) => {
           fallbackReason: 'invalid_incident',
           requestId,
           clientRequestId,
-        }, requestId)
+        }, requestId, clientRequestId)
+      }
+
+      if (incident.length > MAX_INCIDENT_CHARS) {
+        return sendJson(response, 413, {
+          error: `Incident text exceeds ${MAX_INCIDENT_CHARS} characters.`,
+          code: 'INCIDENT_TOO_LARGE',
+          retryable: false,
+          fallbackReason: 'incident_too_large',
+          requestId,
+          clientRequestId,
+        }, requestId, clientRequestId)
       }
 
       if (!GEMINI_API_KEY) {
@@ -68,7 +110,7 @@ const server = http.createServer(async (request, response) => {
           fallbackReason: 'gemini_not_configured',
           requestId,
           clientRequestId,
-        }, requestId)
+        }, requestId, clientRequestId)
       }
 
       const startedAt = Date.now()
@@ -87,7 +129,7 @@ const server = http.createServer(async (request, response) => {
         requestId,
         clientRequestId,
         analysis: result.analysis,
-      }, requestId)
+      }, requestId, clientRequestId)
     }
 
     if (request.method === 'GET') {
@@ -101,7 +143,7 @@ const server = http.createServer(async (request, response) => {
       fallbackReason: 'method_not_allowed',
       requestId,
       clientRequestId,
-    }, requestId)
+    }, requestId, clientRequestId)
   } catch (error) {
     const statusCode = error.statusCode || 500
     sendJson(response, statusCode, {
@@ -113,7 +155,7 @@ const server = http.createServer(async (request, response) => {
       latencyMs: error.latencyMs,
       requestId,
       clientRequestId,
-    }, requestId)
+    }, requestId, clientRequestId)
   }
 })
 
@@ -213,28 +255,47 @@ async function analyzeWithGeminiOnce({ incident, locationHint, supportHint, sour
     'requiredResources should be an array of short strings.',
   ].join('\n')
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': GEMINI_API_KEY,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: 'application/json',
+  const controller = new AbortController()
+  const timeoutHandle = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
+
+  let response
+  try {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
         },
-      }),
-    },
-  )
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            responseMimeType: 'application/json',
+          },
+        }),
+        signal: controller.signal,
+      },
+    )
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw createProviderError('Gemini request timed out.', {
+        statusCode: 504,
+        code: 'GEMINI_TIMEOUT',
+        retryable: true,
+        fallbackReason: 'gemini_timeout',
+      })
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutHandle)
+  }
 
   const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
@@ -352,8 +413,18 @@ function clampInteger(value, min, max, fallback) {
 
 async function readJsonBody(request) {
   const chunks = []
+  let totalBytes = 0
 
   for await (const chunk of request) {
+    totalBytes += chunk.length
+    if (totalBytes > MAX_REQUEST_BYTES) {
+      throw createProviderError('Request body too large.', {
+        statusCode: 413,
+        code: 'REQUEST_TOO_LARGE',
+        retryable: false,
+        fallbackReason: 'request_too_large',
+      })
+    }
     chunks.push(chunk)
   }
 
@@ -372,6 +443,42 @@ async function readJsonBody(request) {
       fallbackReason: 'invalid_json_body',
     })
   }
+}
+
+function getClientAddress(request) {
+  const forwardedFor = String(request.headers['x-forwarded-for'] || '').split(',')[0].trim()
+  return forwardedFor || request.socket?.remoteAddress || 'unknown'
+}
+
+function applyRateLimit(clientAddress) {
+  const now = Date.now()
+
+  if (rateLimitBuckets.size > 5000) {
+    for (const [key, value] of rateLimitBuckets.entries()) {
+      if (value.resetAt <= now) {
+        rateLimitBuckets.delete(key)
+      }
+    }
+  }
+
+  const current = rateLimitBuckets.get(clientAddress)
+  if (!current || current.resetAt <= now) {
+    rateLimitBuckets.set(clientAddress, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    })
+    return { allowed: true, retryAfterSec: 0 }
+  }
+
+  if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return {
+      allowed: false,
+      retryAfterSec: Math.max(1, Math.ceil((current.resetAt - now) / 1000)),
+    }
+  }
+
+  current.count += 1
+  return { allowed: true, retryAfterSec: 0 }
 }
 
 function serveStaticFile(requestPath, response, requestId) {
@@ -413,8 +520,10 @@ function serveStaticFile(requestPath, response, requestId) {
     }
 
     const extension = path.extname(filePath).toLowerCase()
+    const contentType = MIME_TYPES[extension] || 'application/octet-stream'
     response.writeHead(200, {
-      'Content-Type': MIME_TYPES[extension] || 'application/octet-stream',
+      ...buildSecurityHeaders({ contentType, isHtml: extension === '.html' }),
+      'Content-Type': contentType,
       'Cache-Control': 'no-cache',
       ...(requestId ? { 'x-request-id': requestId } : {}),
     })
@@ -422,13 +531,42 @@ function serveStaticFile(requestPath, response, requestId) {
   })
 }
 
-function sendJson(response, statusCode, payload, requestId = '') {
+function sendJson(response, statusCode, payload, requestId = '', clientRequestId = '') {
   response.writeHead(statusCode, {
+    ...buildSecurityHeaders({ contentType: 'application/json; charset=utf-8', isHtml: false }),
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-cache',
     ...(requestId ? { 'x-request-id': requestId } : {}),
+    ...(clientRequestId ? { 'x-client-request-id': clientRequestId } : {}),
   })
   response.end(JSON.stringify(payload))
+}
+
+function buildSecurityHeaders({ contentType, isHtml }) {
+  const headers = {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': 'same-site',
+  }
+
+  if (isHtml || String(contentType || '').includes('text/html')) {
+    headers['Content-Security-Policy'] = [
+      "default-src 'self'",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "img-src 'self' data:",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com data:",
+      "connect-src 'self'",
+    ].join('; ')
+  }
+
+  return headers
 }
 
 function delay(durationMs) {

@@ -8,7 +8,7 @@
                     "dev":  "node server.js",
                     "evaluate":  "node evaluation/run-evaluation.js",
                     "evaluate:offline":  "node evaluation/run-evaluation.js --offline",
-                    "check:syntax":  "node --check app.js \u0026\u0026 node --check server.js \u0026\u0026 node --check evaluation/run-evaluation.js \u0026\u0026 node --check src/triage-core.js",
+                    "check:syntax":  "node --check main.js \u0026\u0026 node --check app.js \u0026\u0026 node --check server.js \u0026\u0026 node --check evaluation/run-evaluation.js \u0026\u0026 node --check src/triage-core.js",
                     "test:unit":  "node --test tests/unit/triage-core.test.js",
                     "test:integration":  "node --test tests/integration/analyze-endpoint.test.js",
                     "test":  "npm run test:unit \u0026\u0026 npm run test:integration"

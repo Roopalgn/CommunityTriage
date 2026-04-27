@@ -231,43 +231,67 @@ function renderNavbar() {
 function renderOverviewPage() {
   const m = { triaged: state.reports.length, urgent: state.reports.filter(r => r.urgency === 'Critical' || r.urgency === 'High').length, volunteers: volunteers.length, review: state.reports.filter(r => r.reviewFlags.length).length }
   const focus = getSelectedReport()
+  const recentCases = getFilteredReports().slice(0, 4)
   return `
   <div class="container-fluid py-4 fade-in">
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-3">
       <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-clipboard-data"></i></div><div class="metric-number">${m.triaged}</div><div class="metric-label">Reports Triaged</div></div></div>
       <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="metric-number">${m.urgent}</div><div class="metric-label">Urgent Cases</div></div></div>
       <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-people"></i></div><div class="metric-number">${m.volunteers}</div><div class="metric-label">Volunteers</div></div></div>
       <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-flag"></i></div><div class="metric-number">${m.review}</div><div class="metric-label">Need Review</div></div></div>
     </div>
 
-    <div class="row g-3">
-      <div class="col-lg-7">
-        <div class="ct-card">
-          <div class="ct-eyebrow">Mission</div>
-          <h2 class="fw-bold mb-2" style="font-size:1.6rem;line-height:1.3">See the need. Rank the risk.<br>Send the right help.</h2>
-          <p class="text-secondary small mb-3">Bring in a community report, structure it with Google Gemini or a safe fallback, and give coordinators a clear next step.</p>
-          <div class="d-flex flex-wrap gap-2 mb-3">
-            <button class="btn btn-primary btn-sm" data-route="intake"><i class="bi bi-plus-circle me-1"></i>Analyze a report</button>
-            <button class="btn btn-outline-light btn-sm" data-route="cases"><i class="bi bi-list-check me-1"></i>Open case board</button>
-            <button class="btn btn-outline-light btn-sm" id="reset-demo-btn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset demo</button>
+    <div class="ct-card mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
+      <div>
+        <span class="fw-bold">See the need. Rank the risk. Send the right help.</span>
+        <span class="text-secondary small ms-2 d-none d-md-inline">Use Gemini AI or local fallback to triage community reports.</span>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary btn-sm" data-route="intake"><i class="bi bi-plus-circle me-1"></i>Analyze report</button>
+        <button class="btn btn-outline-light btn-sm" data-route="cases"><i class="bi bi-list-check me-1"></i>Cases</button>
+        <button class="btn btn-outline-light btn-sm" id="reset-demo-btn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
+      </div>
+    </div>
+
+    <div class="row g-3 flex-grow-1">
+      <div class="col-lg-7 d-flex flex-column">
+        <div class="ct-card flex-grow-1 p-0">
+          <div class="p-3" style="border-bottom:1px solid var(--ct-border)">
+            <div class="ct-eyebrow mb-0">Recent Cases</div>
           </div>
-          <div class="row g-2">
-            <div class="col-4"><div class="text-center p-2 rounded" style="background:var(--ct-surface-hover)"><strong class="d-block" style="color:var(--ct-primary)">1</strong><small class="text-secondary">Capture</small></div></div>
-            <div class="col-4"><div class="text-center p-2 rounded" style="background:var(--ct-surface-hover)"><strong class="d-block" style="color:var(--ct-primary)">2</strong><small class="text-secondary">Score</small></div></div>
-            <div class="col-4"><div class="text-center p-2 rounded" style="background:var(--ct-surface-hover)"><strong class="d-block" style="color:var(--ct-primary)">3</strong><small class="text-secondary">Assign</small></div></div>
+          <div style="overflow-y:auto;flex:1">
+            ${recentCases.map(r => `
+              <div class="ct-case-item priority-${r.urgency.toLowerCase()}" data-select-report="${sanitize(r.id)}" style="cursor:pointer">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <span class="fw-600 small">${sanitize(r.title)}</span>
+                  <span class="badge ${urgencyBadgeClass(r.urgency)} ms-2 flex-shrink-0">${r.urgency}</span>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                  <small class="text-secondary"><i class="bi bi-geo-alt"></i> ${sanitize(r.location)}</small>
+                  <small style="color:var(--ct-primary)"><i class="bi bi-bullseye"></i> ${r.score}%</small>
+                </div>
+              </div>
+            `).join('')}
           </div>
         </div>
       </div>
-      <div class="col-lg-5">
-        <div class="ct-card">
+      <div class="col-lg-5 d-flex flex-column">
+        <div class="ct-card ct-detail-panel flex-grow-1" style="position:static;max-height:none">
           <div class="ct-eyebrow">Current Focus</div>
           <h5 class="fw-bold mb-2">${sanitize(focus.title)}</h5>
           <p class="text-secondary small mb-3">${sanitize(focus.summary)}</p>
           <div class="row g-2">
             <div class="col-6"><span class="ct-label d-block">Location</span><span class="ct-value">${sanitize(focus.location)}</span></div>
             <div class="col-6"><span class="ct-label d-block">Urgency</span><span class="badge ${urgencyBadgeClass(focus.urgency)} mt-1">${focus.urgency}</span></div>
-            <div class="col-6 mt-2"><span class="ct-label d-block">Priority</span><span class="ct-value">${focus.score}%</span></div>
+            <div class="col-6 mt-2"><span class="ct-label d-block">Priority</span><span class="ct-value" style="color:var(--ct-primary)">${focus.score}%</span></div>
             <div class="col-6 mt-2"><span class="ct-label d-block">Confidence</span><span class="ct-value">${focus.confidence}%</span></div>
+          </div>
+          <div class="ct-section">
+            <span class="ct-label d-block mb-1">Assigned</span>
+            <span class="small">${focus.assignedVolunteerId ? sanitize(focus.status) : '<span class=\"text-secondary\">Unassigned</span>'}</span>
+          </div>
+          <div class="mt-auto pt-3">
+            <button class="btn btn-primary btn-sm w-100" data-route="cases"><i class="bi bi-arrow-right me-1"></i>Open in Case Board</button>
           </div>
         </div>
       </div>
@@ -289,9 +313,9 @@ function renderCasesPage() {
       <div><h4 class="ct-section-title mb-0">Case Board</h4><p class="ct-section-desc mb-0">Ranked community reports with AI-powered triage</p></div>
       <button class="btn btn-primary btn-sm" data-route="intake"><i class="bi bi-plus me-1"></i>New report</button>
     </div>
-    <div class="row g-3">
-      <div class="col-lg-7">
-        <div class="ct-card p-0">
+    <div class="row g-3 flex-grow-1">
+      <div class="col-lg-7 d-flex flex-column">
+        <div class="ct-card p-0 flex-grow-1 d-flex flex-column">
           <div class="p-3" style="border-bottom:1px solid var(--ct-border)">
             <div class="row g-2">
               <div class="col-md-4"><input class="form-control form-control-sm" id="case-search" type="search" placeholder="Search cases..." value="${sanitize(state.filters.search)}" /></div>
@@ -300,7 +324,7 @@ function renderCasesPage() {
               <div class="col-md-2"><select class="form-select form-select-sm" id="sort-filter">${[{v:'priority',l:'Priority'},{v:'confidence',l:'Confidence'},{v:'location',l:'Location'}].map(o => `<option value="${o.v}" ${state.filters.sort === o.v ? 'selected' : ''}>${o.l}</option>`).join('')}</select></div>
             </div>
           </div>
-          <div style="max-height:calc(100vh - 220px);overflow-y:auto">
+          <div style="overflow-y:auto;flex:1;min-height:200px">
             ${filtered.length ? filtered.map(r => `
               <div class="ct-case-item priority-${r.urgency.toLowerCase()} ${r.id === selected.id ? 'selected' : ''}" data-select-report="${sanitize(r.id)}">
                 <div class="d-flex justify-content-between align-items-start mb-1">
@@ -319,8 +343,8 @@ function renderCasesPage() {
           </div>
         </div>
       </div>
-      <div class="col-lg-5">
-        <div class="ct-card ct-detail-panel">
+      <div class="col-lg-5 d-flex flex-column">
+        <div class="ct-card ct-detail-panel flex-grow-1">
           <div class="ct-eyebrow">Case Detail</div>
           <h5 class="fw-bold mb-1">${sanitize(selected.title)}</h5>
           <p class="text-secondary small mb-0">${sanitize(selected.summary)}</p>
@@ -369,9 +393,9 @@ function renderIntakePage() {
   <div class="container-fluid py-4 fade-in">
     <h4 class="ct-section-title">Report Intake</h4>
     <p class="ct-section-desc mb-3">Submit a new incident for AI-powered triage. CSV batch import is also supported.</p>
-    <div class="row g-3">
-      <div class="col-lg-7">
-        <div class="ct-card">
+    <div class="row g-3 flex-grow-1">
+      <div class="col-lg-7 d-flex flex-column">
+        <div class="ct-card flex-grow-1">
           <div class="d-flex flex-wrap gap-2 mb-3">
             <button class="btn btn-outline-light btn-sm" data-demo-key="water"><i class="bi bi-droplet me-1"></i>Water crisis</button>
             <button class="btn btn-outline-light btn-sm" data-demo-key="flood"><i class="bi bi-cloud-rain me-1"></i>Flood relief</button>
@@ -397,8 +421,8 @@ function renderIntakePage() {
           ${state.analysisStatus.message ? `<div class="alert alert-${state.analysisStatus.kind === 'error' ? 'danger' : state.analysisStatus.kind === 'success' ? 'success' : 'info'} mt-3 small py-2" role="alert">${sanitize(state.analysisStatus.message)}</div>` : ''}
         </div>
       </div>
-      <div class="col-lg-5">
-        <div class="ct-card">
+      <div class="col-lg-5 d-flex flex-column">
+        <div class="ct-card flex-grow-1">
           <div class="ct-eyebrow">How it works</div>
           <div class="mb-3">
             <div class="d-flex align-items-start gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold flex-shrink-0" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">1</span><span class="small">Text is sent to Google Gemini for structured extraction</span></div>
@@ -423,15 +447,17 @@ function renderVolunteersPage() {
   const topId = ranked[0]?.v.id
   return `
   <div class="container-fluid py-4 fade-in">
-    <h4 class="ct-section-title">Volunteer Coordination</h4>
-    <p class="ct-section-desc mb-3">Match the right person to the right case based on skills, location, and availability.</p>
-    <div class="row g-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div><h4 class="ct-section-title mb-0">Volunteer Coordination</h4><p class="ct-section-desc mb-0">Match the right person to the right case.</p></div>
+      <span class="badge ${urgencyBadgeClass(selected.urgency)}">${sanitize(selected.title)}</span>
+    </div>
+    <div class="row g-3 flex-grow-1">
       ${ranked.map(({ v, fit }) => {
         const isAssigned = selected.assignedVolunteerId === v.id
         const isTop = v.id === topId
         return `
-        <div class="col-md-6 col-lg-3">
-          <div class="ct-card ct-card-lift ${isAssigned ? 'ct-card-active' : isTop ? 'ct-top-match' : ''}">
+        <div class="col-md-6 col-lg-3 d-flex">
+          <div class="ct-card ct-card-lift ${isAssigned ? 'ct-card-active' : isTop ? 'ct-top-match' : ''} flex-grow-1 d-flex flex-column">
             <div class="d-flex justify-content-between align-items-start mb-1">
               <strong class="small">${sanitize(v.name)}</strong>
               ${isTop ? '<span class="ct-flag ct-flag-ok">Best match</span>' : ''}
@@ -443,20 +469,10 @@ function renderVolunteersPage() {
               <span class="small fw-bold" style="color:var(--ct-primary)">${fit.score}%</span>
             </div>
             <div class="ct-progress-mini"><div class="fill" style="width:${fit.score}%"></div></div>
-            <button class="btn ${isAssigned ? 'btn-primary' : 'btn-outline-light'} btn-sm w-100 mt-3" data-assign-volunteer="${sanitize(selected.id)}" data-volunteer-id="${sanitize(v.id)}">${isAssigned ? '<i class="bi bi-check-circle me-1"></i>Assigned' : 'Assign to case'}</button>
+            <button class="btn ${isAssigned ? 'btn-primary' : 'btn-outline-light'} btn-sm w-100 mt-auto pt-2" data-assign-volunteer="${sanitize(selected.id)}" data-volunteer-id="${sanitize(v.id)}">${isAssigned ? '<i class="bi bi-check-circle me-1"></i>Assigned' : 'Assign to case'}</button>
           </div>
         </div>`
       }).join('')}
-    </div>
-    <div class="ct-card mt-3">
-      <div class="ct-eyebrow">Selected Case</div>
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
-          <h6 class="fw-bold mb-1">${sanitize(selected.title)}</h6>
-          <p class="text-secondary small mb-0">${sanitize(selected.summary)}</p>
-        </div>
-        <span class="badge ${urgencyBadgeClass(selected.urgency)} flex-shrink-0 ms-2">${selected.urgency}</span>
-      </div>
     </div>
   </div>`
 }
@@ -485,9 +501,9 @@ function renderInsightsPage() {
       <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-shield-check"></i></div><div class="metric-number">${avgConf}%</div><div class="metric-label">Avg Confidence</div><span class="${avgConf >= 85 ? 'ct-trend-up' : 'ct-trend-neutral'}">${avgConf >= 85 ? '↑ High' : '→ Moderate'}</span></div></div>
       <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-exclamation-diamond"></i></div><div class="metric-number">${urgentPct}%</div><div class="metric-label">Urgent Share</div><span class="${urgentPct > 50 ? 'ct-trend-up' : 'ct-trend-neutral'}">${urgentPct > 50 ? '↑ High load' : '→ Manageable'}</span></div></div>
     </div>
-    <div class="row g-3">
-      <div class="col-md-6"><div class="ct-card"><div class="ct-eyebrow">By Location</div>${locItems.length ? bars(locItems, peak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div></div>
-      <div class="col-md-6"><div class="ct-card"><div class="ct-eyebrow">By Issue Type</div>${issueItems.length ? bars(issueItems, issuePeak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div></div>
+    <div class="row g-3 flex-grow-1">
+      <div class="col-md-6 d-flex"><div class="ct-card flex-grow-1"><div class="ct-eyebrow">By Location</div>${locItems.length ? bars(locItems, peak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div></div>
+      <div class="col-md-6 d-flex"><div class="ct-card flex-grow-1"><div class="ct-eyebrow">By Issue Type</div>${issueItems.length ? bars(issueItems, issuePeak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div></div>
     </div>
   </div>`
 }
@@ -501,7 +517,8 @@ function renderAuditPage() {
       <div><h4 class="ct-section-title mb-0">Audit Trail</h4><p class="ct-section-desc mb-0">Every action stays visible for trust and accountability.</p></div>
       <button class="btn btn-outline-light btn-sm" id="export-audit-btn"><i class="bi bi-download me-1"></i>Export JSON</button>
     </div>
-    <div class="ct-card p-0" style="max-height:calc(100vh - 180px);overflow-y:auto">
+    <div class="ct-card p-0 flex-grow-1 d-flex flex-column" style="overflow:hidden">
+      <div style="overflow-y:auto;flex:1">
       ${state.auditTrail.length ? state.auditTrail.map(e => `
         <div class="ct-case-item" style="cursor:default">
           <div class="d-flex justify-content-between align-items-start mb-1">
@@ -511,6 +528,7 @@ function renderAuditPage() {
           <p class="small text-secondary mb-0">${sanitize(e.message)}</p>
         </div>
       `).join('') : '<div class="p-4 text-center text-secondary">No audit events yet.</div>'}
+      </div>
     </div>
   </div>`
 }

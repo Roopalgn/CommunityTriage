@@ -26,12 +26,38 @@
   --ct-radius-sm: 8px;
 }
 
-/* ── Base ── */
+/* ── Base — Full viewport flex layout ── */
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--ct-base);
   color: var(--ct-text);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+main > .container-fluid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Typography scale ── */
@@ -234,13 +260,19 @@ body {
   border-left-color: var(--ct-primary);
 }
 
-.ct-case-item.priority-critical { border-left-color: var(--ct-danger); }
-.ct-case-item.priority-high { border-left-color: var(--ct-warning); }
+/* Semantic urgency backgrounds — encode severity in bg, not just border */
+.ct-case-item.priority-critical { border-left-color: var(--ct-danger); background: rgba(255, 107, 107, 0.03); }
+.ct-case-item.priority-high { border-left-color: var(--ct-warning); background: rgba(245, 158, 11, 0.03); }
 .ct-case-item.priority-medium { border-left-color: #3B82F6; }
 
-.ct-case-item.selected.priority-critical { border-left-color: var(--ct-danger); background: rgba(255, 107, 107, 0.06); }
-.ct-case-item.selected.priority-high { border-left-color: var(--ct-warning); background: rgba(245, 158, 11, 0.06); }
+.ct-case-item.selected.priority-critical { border-left-color: var(--ct-danger); background: rgba(255, 107, 107, 0.08); }
+.ct-case-item.selected.priority-high { border-left-color: var(--ct-warning); background: rgba(245, 158, 11, 0.08); }
 .ct-case-item.selected.priority-medium { border-left-color: #3B82F6; background: rgba(59, 130, 246, 0.06); }
+
+/* First item in list gets extra visual weight */
+.ct-case-item:first-child {
+  font-weight: 500;
+}
 
 /* ── Form Overrides ── */
 
@@ -324,13 +356,15 @@ textarea.form-control {
   border-top: 1px solid var(--ct-border);
 }
 
-/* ── Detail Panel (sticky) ── */
+/* ── Detail Panel — Decision center (elevated surface) ── */
 
 .ct-detail-panel {
   position: sticky;
   top: 76px;
   max-height: calc(100vh - 92px);
   overflow-y: auto;
+  background: var(--ct-surface-hover);
+  border-color: var(--ct-border-hover);
 }
 
 @media (max-width: 991px) {
@@ -399,8 +433,23 @@ textarea.form-control {
   overflow: hidden;
 }
 
-/* Remove min-height stretching — content-driven layout */
-main { padding-bottom: 2rem; }
+/* Full-height row panels */
+.ct-row-stretch {
+  flex: 1;
+}
+
+.ct-row-stretch > .row {
+  flex: 1;
+}
+
+.ct-row-stretch > .row > [class*="col-"] {
+  display: flex;
+  flex-direction: column;
+}
+
+.ct-row-stretch > .row > [class*="col-"] > .ct-card {
+  flex: 1;
+}
 
 /* Trend indicators */
 .ct-trend-up { color: var(--ct-success); font-weight: 600; font-size: 0.75rem; }

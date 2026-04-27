@@ -1,3 +1,5 @@
+const triageCore = typeof window !== 'undefined' ? window.CommunityTriageCore || null : null
+
 const navItems = [
   { id: 'overview', label: 'Overview' },
   { id: 'cases', label: 'Cases' },
@@ -35,6 +37,16 @@ const demoScenarios = {
 
 function sanitize(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] || character))
+}
+
+function formatLocationSafe(value) {
+  if (triageCore?.formatLocation) return triageCore.formatLocation(value)
+  return formatLocation(value)
+}
+
+function normalizeUrgencySafe(value) {
+  if (triageCore?.normalizeUrgency) return triageCore.normalizeUrgency(value)
+  return normalizeUrgency(value)
 }
 
 function titleCase(value) {
@@ -355,6 +367,16 @@ function addAudit(type, reportId, message, metadata = {}) {
   state.auditTrail = [createAudit(type, reportId, message, metadata), ...state.auditTrail].slice(0, AUDIT_LIMIT)
 }
 
+function renderBackendPill() {
+  if (state.backend.available && state.backend.geminiConfigured) {
+    return `<span class="status-pill status-pill--active" title="Gemini is configured and active"><span class="status-dot status-dot--active"></span>Gemini active</span>`
+  }
+  if (state.backend.available) {
+    return `<span class="status-pill status-pill--fallback" title="Backend online, Gemini not configured"><span class="status-dot status-dot--fallback"></span>Fallback mode</span>`
+  }
+  return `<span class="status-pill status-pill--offline" title="Backend not reachable"><span class="status-dot status-dot--offline"></span>Offline</span>`
+}
+
 function renderHeader() {
   const focus = getSelectedReport()
 
@@ -366,6 +388,7 @@ function renderHeader() {
           <strong>CommunityTriage</strong>
           <p>Fast, explainable triage for urgent community needs.</p>
         </div>
+        ${renderBackendPill()}
       </div>
 
       <nav class="nav-pills" aria-label="Primary">
@@ -396,6 +419,7 @@ function renderOverviewPage() {
           <div class="hero-actions">
             <button type="button" data-route="intake">Analyze a report</button>
             <button type="button" class="ghost-button" data-route="cases">Open case board</button>
+            <button type="button" class="ghost-button" id="reset-demo-btn" title="Reset to seed data for a clean demo">Reset demo</button>
           </div>
           <div class="hero-steps">
             <div><strong>1.</strong><span>Capture the report</span></div>
@@ -615,12 +639,12 @@ function renderIntakePage() {
             </label>
 
             <div class="form-actions">
-              <button type="submit" id="analyze-button">Analyze report</button>
+              <button type="submit" id="analyze-button" class="${state.analysisStatus.kind === 'loading' ? 'btn-pulse' : ''}">${state.analysisStatus.kind === 'loading' ? 'Analyzing...' : 'Analyze report'}</button>
               <small id="backend-status-note">${state.backend.geminiConfigured ? 'Gemini analysis is configured. The app will fall back locally if the backend is unavailable.' : 'The app will fall back to the local analyzer if Gemini is not available.'}</small>
             </div>
           </form>
 
-          ${state.analysisStatus.message ? `<div class="status-banner ${state.analysisStatus.kind}" role="status" aria-live="polite">${sanitize(state.analysisStatus.message)}</div>` : ''}
+          ${state.analysisStatus.message ? `<div class="status-banner ${state.analysisStatus.kind} banner-enter" role="status" aria-live="polite">${sanitize(state.analysisStatus.message)}</div>` : ''}
         </article>
 
         <aside class="panel">
@@ -712,10 +736,25 @@ function renderVolunteersPage() {
   `
 }
 
+function buildBarChart(items, maxVal) {
+  if (!items.length) return '<div class="empty-state">No data yet.</div>'
+  const peak = maxVal || Math.max(...items.map(([, v]) => v), 1)
+  return items.map(([label, count]) => {
+    const pct = Math.max(4, Math.round((count / peak) * 100))
+    return `<div class="bar-row"><span class="bar-label">${sanitize(label)}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-value">${count}</span></div>`
+  }).join('')
+}
+
 function renderInsightsPage() {
   const analytics = buildAnalytics(state.reports)
-  const locationCards = analytics.locationHotspots.map(([label, count]) => `<article class="stat-card"><span>${sanitize(label)}</span><strong>${count}</strong><small>Active reports in the queue.</small></article>`).join('')
-  const issueCards = analytics.issueHotspots.map(([label, count]) => `<article class="stat-card"><span>${sanitize(label)}</span><strong>${count}</strong><small>Repeated issue cluster.</small></article>`).join('')
+  const locationBars = buildBarChart(analytics.locationHotspots)
+  const issueBars = buildBarChart(analytics.issueHotspots)
+  const urgencyBreakdown = [
+    ['Critical', state.reports.filter(r => r.urgency === 'Critical').length],
+    ['High', state.reports.filter(r => r.urgency === 'High').length],
+    ['Medium', state.reports.filter(r => r.urgency === 'Medium').length],
+  ].filter(([, c]) => c > 0)
+  const urgencyBars = buildBarChart(urgencyBreakdown)
 
   return `
     <section class="page">
@@ -723,7 +762,7 @@ function renderInsightsPage() {
         <div>
           <span class="eyebrow">Decision intelligence</span>
           <h1>Where the need is concentrating</h1>
-          <p>These cards summarize hot areas, issue clusters, and extraction quality without forcing the user through a giant dashboard scroll.</p>
+          <p>Visual summaries of hot areas, issue clusters, urgency distribution, and extraction quality.</p>
         </div>
       </div>
 
@@ -736,14 +775,34 @@ function renderInsightsPage() {
 
       <div class="feature-grid">
         <article class="feature-card">
-          <span class="eyebrow">Location clusters</span>
+          <span class="eyebrow">Location distribution</span>
           <h2>Where need is strongest</h2>
-          <div class="mini-grid">${locationCards || '<div class="empty-state">No location clusters yet.</div>'}</div>
+          <div class="chart-container">${locationBars}</div>
         </article>
         <article class="feature-card">
-          <span class="eyebrow">Issue clusters</span>
+          <span class="eyebrow">Issue distribution</span>
           <h2>What keeps repeating</h2>
-          <div class="mini-grid">${issueCards || '<div class="empty-state">No issue clusters yet.</div>'}</div>
+          <div class="chart-container">${issueBars}</div>
+        </article>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature-card">
+          <span class="eyebrow">Urgency breakdown</span>
+          <h2>Severity distribution</h2>
+          <div class="chart-container">${urgencyBars}</div>
+        </article>
+        <article class="feature-card">
+          <span class="eyebrow">Extraction quality</span>
+          <h2>Confidence overview</h2>
+          <div class="chart-container">
+            <div class="confidence-gauge">
+              <div class="gauge-ring" style="--gauge-pct:${analytics.averageConfidence}">
+                <span class="gauge-value">${analytics.averageConfidence}%</span>
+              </div>
+              <small>Average extraction confidence across ${state.reports.length} reports.</small>
+            </div>
+          </div>
         </article>
       </div>
     </section>
@@ -773,6 +832,7 @@ function renderAuditPage() {
           <h1>Every important action stays visible</h1>
           <p>Analyze, override, assign, and duplicate-flag events are logged so judges can see the workflow is trustworthy.</p>
         </div>
+        <button type="button" class="ghost-button" id="export-audit-btn" title="Download audit trail as JSON">Export JSON</button>
       </div>
 
       <div class="audit-list">
@@ -780,6 +840,28 @@ function renderAuditPage() {
       </div>
     </section>
   `
+}
+
+function handleResetDemo() {
+  try { window.localStorage.removeItem(STORAGE_KEY) } catch {}
+  state.reports = seedReports.map((report) => normalizeReport(report))
+  state.auditTrail = buildAuditSeed(state.reports)
+  state.selectedReportId = state.reports[0]?.id || null
+  state.nextReportNumber = 1045
+  state.nextAuditNumber = state.reports.length + 1
+  state.analysisStatus = { kind: 'success', message: 'Demo reset to initial state.' }
+  saveSnapshot()
+  render()
+}
+
+function handleExportAudit() {
+  const blob = new Blob([JSON.stringify(state.auditTrail, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `communitytriage-audit-${new Date().toISOString().slice(0, 10)}.json`
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 function attachListeners() {
@@ -824,6 +906,8 @@ function attachListeners() {
   document.getElementById('override-form')?.addEventListener('submit', handleOverrideSubmit)
   document.getElementById('report-form')?.addEventListener('submit', handleReportSubmit)
   document.getElementById('csv-upload')?.addEventListener('change', handleCsvImport)
+  document.getElementById('reset-demo-btn')?.addEventListener('click', handleResetDemo)
+  document.getElementById('export-audit-btn')?.addEventListener('click', handleExportAudit)
 }
 
 function assignVolunteer(reportId, volunteerId, source) {

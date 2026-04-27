@@ -6,3 +6,4 @@ dist
 .env.local
 server-stderr.log
 server-stdout.log
+data/state.json

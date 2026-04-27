@@ -9,6 +9,14 @@ test('normalizeUrgency returns valid operational buckets', () => {
   assert.equal(triageCore.normalizeUrgency('something-else'), 'Medium')
 })
 
+test('normalizeUrgency handles edge cases', () => {
+  assert.equal(triageCore.normalizeUrgency(''), 'Medium')
+  assert.equal(triageCore.normalizeUrgency(null), 'Medium')
+  assert.equal(triageCore.normalizeUrgency(undefined), 'Medium')
+  assert.equal(triageCore.normalizeUrgency(0), 'Medium')
+  assert.equal(triageCore.normalizeUrgency('  Critical  '), 'Critical')
+})
+
 test('clampNumber and normalizeRequiredResources normalize numeric and resource inputs', () => {
   assert.equal(triageCore.clampNumber('97.4', 0, 99, 70), 97)
   assert.equal(triageCore.clampNumber('not-a-number', 0, 99, 70), 70)
@@ -18,6 +26,38 @@ test('clampNumber and normalizeRequiredResources normalize numeric and resource 
     'water tankers, blankets',
   )
   assert.equal(triageCore.normalizeRequiredResources('', 'fallback value'), 'fallback value')
+})
+
+test('clampNumber handles edge cases', () => {
+  assert.equal(triageCore.clampNumber(NaN, 0, 99, 50), 50)
+  assert.equal(triageCore.clampNumber(Infinity, 0, 99, 50), 50)
+  assert.equal(triageCore.clampNumber(-Infinity, 0, 99, 50), 50)
+  assert.equal(triageCore.clampNumber(-5, 0, 99, 50), 0)
+  assert.equal(triageCore.clampNumber(150, 0, 99, 50), 99)
+  assert.equal(triageCore.clampNumber(0, 0, 99, 50), 0)
+})
+
+test('formatLocation maps known aliases correctly', () => {
+  assert.equal(triageCore.formatLocation('south district'), 'South District')
+  assert.equal(triageCore.formatLocation('CENTRAL WARD area'), 'Central Ward')
+  assert.equal(triageCore.formatLocation(''), 'Community Zone')
+  assert.equal(triageCore.formatLocation(null), 'Community Zone')
+  assert.equal(triageCore.formatLocation('custom place'), 'Custom Place')
+})
+
+test('tokenize splits text into meaningful tokens', () => {
+  const tokens = triageCore.tokenize('Water shortage in South District!')
+  assert.ok(tokens.includes('water'))
+  assert.ok(tokens.includes('shortage'))
+  assert.ok(tokens.includes('south'))
+  assert.ok(tokens.includes('district'))
+  assert.ok(!tokens.includes('in'))
+})
+
+test('tokenize handles empty and null input', () => {
+  assert.deepEqual(triageCore.tokenize(''), [])
+  assert.deepEqual(triageCore.tokenize(null), [])
+  assert.deepEqual(triageCore.tokenize(undefined), [])
 })
 
 test('calculateHybridPriorityScore keeps scores bounded and urgency-sensitive', () => {
@@ -36,6 +76,23 @@ test('calculateHybridPriorityScore keeps scores bounded and urgency-sensitive', 
   assert.ok(criticalScore <= 99)
   assert.ok(mediumScore <= 99)
   assert.ok(criticalScore > mediumScore)
+})
+
+test('calculateHybridPriorityScore handles extreme values', () => {
+  const lowScore = triageCore.calculateHybridPriorityScore({
+    confidence: 0,
+    urgency: 'Medium',
+    fallbackScore: 0,
+  })
+
+  const highScore = triageCore.calculateHybridPriorityScore({
+    confidence: 100,
+    urgency: 'Critical',
+    fallbackScore: 99,
+  })
+
+  assert.ok(lowScore >= 0)
+  assert.ok(highScore <= 99)
 })
 
 test('calculateDuplicateSignals gives higher confidence for near-identical reports', () => {
@@ -76,4 +133,11 @@ test('calculateDuplicateSignals gives higher confidence for near-identical repor
   assert.ok(closeSignals.sameLocation)
   assert.ok(closeSignals.sameIssue)
   assert.ok(closeSignals.sameSource)
+})
+
+test('calculateDuplicateSignals handles empty reports', () => {
+  const empty = { title: '', summary: '', need: '', rawText: '', location: '', issueType: '', source: '' }
+  const signals = triageCore.calculateDuplicateSignals(empty, empty)
+  assert.equal(typeof signals.duplicateScore, 'number')
+  assert.ok(signals.duplicateScore >= 0)
 })

@@ -14,7 +14,7 @@ CommunityTriage follows a lightweight, zero-dependency architecture designed for
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘           │
 │       │              │              │              │                 │
 │  ┌────▼──────────────▼──────────────▼──────────────▼─────┐         │
-│  │              State Manager (localStorage)              │         │
+│  │        State Manager (localStorage + backend sync)     │         │
 │  │  reports · filters · audit events · assignments        │         │
 │  └────────────────────────┬──────────────────────────────┘         │
 │                           │                                         │
@@ -25,6 +25,8 @@ CommunityTriage follows a lightweight, zero-dependency architecture designed for
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ POST /api/analyze-report
                                │ GET  /api/health
+                               │ GET  /api/state
+                               │ PUT  /api/state
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     Node.js Backend (server.js)                     │
@@ -37,7 +39,7 @@ CommunityTriage follows a lightweight, zero-dependency architecture designed for
 │  ┌───────▼──────────────────▼───────────────────────────────┐     │
 │  │              Gemini Analysis Pipeline                      │     │
 │  │                                                            │     │
-│  │  1. Validate & sanitize input                              │     │
+│  │  1. Validate & sanitize input (all fields length-checked)  │     │
 │  │  2. Build structured prompt                                │     │
 │  │  3. Call Gemini API with timeout                           │     │
 │  │  4. Retry with exponential backoff (429, 503, 504)         │     │
@@ -47,6 +49,11 @@ CommunityTriage follows a lightweight, zero-dependency architecture designed for
 │  │  On failure → return error codes for frontend fallback     │     │
 │  └──────────────────────────┬───────────────────────────────┘     │
 │                             │                                       │
+│  ┌──────────────────────────▼───────────────────────────────┐     │
+│  │              Persistence Layer (data/state.json)           │     │
+│  │  reports · audit trail · filters · assignment state        │     │
+│  │  Graceful shutdown · Structured JSON logging               │     │
+│  └───────────────────────────────────────────────────────────┘     │
 └─────────────────────────────┼───────────────────────────────────────┘
                               │
                               ▼
@@ -97,10 +104,14 @@ CommunityTriage follows a lightweight, zero-dependency architecture designed for
 | Decision | Rationale |
 |----------|-----------|
 | Zero npm dependencies | Reduces attack surface, simplifies deployment, faster cold starts on Cloud Run |
-| localStorage persistence | Sufficient for Phase 1 demo; upgradeable to a managed store in Phase 2 |
+| Dual persistence (localStorage + server JSON) | Frontend works offline via localStorage; backend persists state across refreshes and deploys |
 | Hybrid scoring model | Pure AI scores are unreliable under rate limits; deterministic fallback ensures consistency |
 | Server-side Gemini calls only | API key never exposed to the browser; all AI calls go through the backend |
 | Explicit fallback codes | Frontend can distinguish transient vs. hard failures and inform the user precisely |
+| Shared triage-core library | Scoring, normalization, and duplicate logic reused consistently across frontend and backend |
+| Graceful shutdown | SIGTERM/SIGINT handlers ensure clean Cloud Run container lifecycle |
+| Structured JSON logging | Machine-readable logs for observability; level-tagged for filtering |
+| Input validation on all fields | Length limits enforced both client-side and server-side to prevent abuse |
 
 ## Technology Stack
 

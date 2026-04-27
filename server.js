@@ -4,6 +4,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { URL } = require('node:url')
+const triageCore = require('./src/triage-core.js')
 
 loadEnvFiles()
 
@@ -18,8 +19,13 @@ const MAX_INCIDENT_CHARS = clampInteger(process.env.MAX_INCIDENT_CHARS, 200, 120
 const RATE_LIMIT_WINDOW_MS = clampInteger(process.env.RATE_LIMIT_WINDOW_MS, 1000, 10 * 60 * 1000, 60 * 1000)
 const RATE_LIMIT_MAX_REQUESTS = clampInteger(process.env.RATE_LIMIT_MAX_REQUESTS, 5, 600, 45)
 
+const MAX_FIELD_CHARS = 500
+
 const RETRYABLE_PROVIDER_STATUS = new Set([429, 503, 504])
 const rateLimitBuckets = new Map()
+
+const DATA_DIR = path.join(ROOT_DIR, 'data')
+const STATE_FILE = path.join(DATA_DIR, 'state.json')
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -46,6 +52,46 @@ const server = http.createServer(async (request, response) => {
         backend: 'node',
         geminiConfigured: Boolean(GEMINI_API_KEY),
         model: GEMINI_MODEL,
+        requestId,
+        clientRequestId,
+      }, requestId, clientRequestId)
+    }
+
+    if (request.method === 'GET' && requestUrl.pathname === '/api/state') {
+      const persisted = loadPersistedState()
+      return sendJson(response, 200, {
+        ok: true,
+        state: persisted,
+        requestId,
+        clientRequestId,
+      }, requestId, clientRequestId)
+    }
+
+    if (request.method === 'PUT' && requestUrl.pathname === '/api/state') {
+      const contentType = String(request.headers['content-type'] || '').toLowerCase()
+      if (!contentType.includes('application/json')) {
+        return sendJson(response, 415, {
+          error: 'Content-Type must be application/json.',
+          code: 'UNSUPPORTED_CONTENT_TYPE',
+          retryable: false,
+          requestId,
+          clientRequestId,
+        }, requestId, clientRequestId)
+      }
+      const body = await readJsonBody(request)
+      if (!body || typeof body !== 'object') {
+        return sendJson(response, 400, {
+          error: 'Invalid state payload.',
+          code: 'INVALID_STATE',
+          retryable: false,
+          requestId,
+          clientRequestId,
+        }, requestId, clientRequestId)
+      }
+      const saved = savePersistedState(body)
+      log(saved ? 'info' : 'error', saved ? 'State persisted' : 'State persistence failed', { requestId })
+      return sendJson(response, saved ? 200 : 500, {
+        ok: saved,
         requestId,
         clientRequestId,
       }, requestId, clientRequestId)
@@ -102,6 +148,21 @@ const server = http.createServer(async (request, response) => {
         }, requestId, clientRequestId)
       }
 
+      const locationHint = String(body.locationHint || '').trim()
+      const supportHint = String(body.supportHint || '').trim()
+      const source = String(body.source || '').trim()
+
+      if (locationHint.length > MAX_FIELD_CHARS || supportHint.length > MAX_FIELD_CHARS || source.length > MAX_FIELD_CHARS) {
+        return sendJson(response, 413, {
+          error: `Location, support, and source fields must be under ${MAX_FIELD_CHARS} characters.`,
+          code: 'FIELD_TOO_LARGE',
+          retryable: false,
+          fallbackReason: 'field_too_large',
+          requestId,
+          clientRequestId,
+        }, requestId, clientRequestId)
+      }
+
       if (!GEMINI_API_KEY) {
         return sendJson(response, 503, {
           error: 'Gemini is not configured on the backend.',
@@ -116,9 +177,9 @@ const server = http.createServer(async (request, response) => {
       const startedAt = Date.now()
       const result = await analyzeWithGeminiWithRetry({
         incident,
-        locationHint: String(body.locationHint || '').trim(),
-        supportHint: String(body.supportHint || '').trim(),
-        source: String(body.source || '').trim(),
+        locationHint,
+        supportHint,
+        source,
       })
 
       return sendJson(response, 200, {
@@ -146,6 +207,11 @@ const server = http.createServer(async (request, response) => {
     }, requestId, clientRequestId)
   } catch (error) {
     const statusCode = error.statusCode || 500
+    log('error', error.message || 'Unexpected server error', {
+      requestId,
+      code: error.code,
+      statusCode,
+    })
     sendJson(response, statusCode, {
       error: error.message || 'Unexpected server error.',
       code: error.code || 'BACKEND_ERROR',
@@ -160,8 +226,23 @@ const server = http.createServer(async (request, response) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`CommunityTriage server running on http://localhost:${PORT}`)
+  log('info', `CommunityTriage server running on http://localhost:${PORT}`)
 })
+
+function shutdown(signal) {
+  log('info', `Received ${signal}, shutting down gracefully`)
+  server.close(() => {
+    log('info', 'Server closed')
+    process.exit(0)
+  })
+  setTimeout(() => {
+    log('warn', 'Forced shutdown after timeout')
+    process.exit(1)
+  }, 5000)
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
 
 function loadEnvFiles() {
   const envFiles = ['.env.local', '.env']
@@ -358,8 +439,8 @@ function parseGeminiJson(rawText) {
 }
 
 function normalizeGeminiAnalysis(analysis, fallback) {
-  const urgency = normalizeUrgency(analysis.urgency)
-  const confidence = clampNumber(analysis.confidence, 0, 100, 78)
+  const urgency = triageCore.normalizeUrgency(analysis.urgency)
+  const confidence = triageCore.clampNumber(analysis.confidence, 0, 100, 78)
   const requiredResources = Array.isArray(analysis.requiredResources)
     ? analysis.requiredResources.map((value) => String(value).trim()).filter(Boolean)
     : String(analysis.requiredResources || fallback.supportHint || '')
@@ -377,29 +458,6 @@ function normalizeGeminiAnalysis(analysis, fallback) {
     summary: String(analysis.summary || fallback.incident).trim(),
     justification: String(analysis.justification || 'Gemini provided a structured triage interpretation.').trim(),
   }
-}
-
-function normalizeUrgency(value) {
-  const normalized = String(value || '').trim().toLowerCase()
-
-  if (normalized === 'critical') {
-    return 'Critical'
-  }
-
-  if (normalized === 'high') {
-    return 'High'
-  }
-
-  return 'Medium'
-}
-
-function clampNumber(value, min, max, fallback) {
-  const numericValue = Number(value)
-  if (!Number.isFinite(numericValue)) {
-    return fallback
-  }
-
-  return Math.min(max, Math.max(min, Math.round(numericValue)))
 }
 
 function clampInteger(value, min, max, fallback) {
@@ -644,3 +702,52 @@ function classifyProviderFailure(statusCode) {
     fallbackReason: 'gemini_request_failed',
   }
 }
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true })
+  }
+}
+
+function loadPersistedState() {
+  try {
+    ensureDataDir()
+    if (fs.existsSync(STATE_FILE)) {
+      return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
+    }
+  } catch {
+    // Fall back to null
+  }
+  return null
+}
+
+function savePersistedState(state) {
+  try {
+    ensureDataDir()
+    const safe = JSON.stringify(state)
+    fs.writeFileSync(STATE_FILE, safe, 'utf8')
+    return true
+  } catch {
+    return false
+  }
+}
+
+function log(level, message, meta = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    message,
+    ...meta,
+  }
+  const out = level === 'error' ? process.stderr : process.stdout
+  out.write(JSON.stringify(entry) + '\n')
+}
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, value] of rateLimitBuckets.entries()) {
+    if (value.resetAt <= now) {
+      rateLimitBuckets.delete(key)
+    }
+  }
+}, 60000)

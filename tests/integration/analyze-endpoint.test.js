@@ -109,3 +109,84 @@ test('analyze endpoint returns fallback-compatible error metadata when Gemini is
   assert.ok(analyzePayload.requestId)
   assert.equal(analyzePayload.clientRequestId, 'test-client-request-1')
 })
+
+test('state persistence endpoints round-trip correctly', async (t) => {
+  const port = createTestPort()
+  const child = spawn(process.execPath, ['server.js'], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      GEMINI_API_KEY: '',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+
+  t.after(() => {
+    if (!child.killed) {
+      child.kill()
+    }
+  })
+
+  await waitForServer(`http://localhost:${port}/api/health`)
+
+  const testState = {
+    reports: [{ id: 'CT-9999', title: 'Test report' }],
+    auditTrail: [{ id: 'AT-1', type: 'test' }],
+    nextReportNumber: 10000,
+    nextAuditNumber: 2,
+  }
+
+  const putResponse = await fetch(`http://localhost:${port}/api/state`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(testState),
+  })
+
+  assert.equal(putResponse.status, 200)
+  const putPayload = await putResponse.json()
+  assert.equal(putPayload.ok, true)
+
+  const getResponse = await fetch(`http://localhost:${port}/api/state`)
+  assert.equal(getResponse.status, 200)
+  const getPayload = await getResponse.json()
+  assert.ok(getPayload.state)
+  assert.equal(getPayload.state.reports[0].id, 'CT-9999')
+  assert.equal(getPayload.state.nextReportNumber, 10000)
+})
+
+test('analyze endpoint rejects oversized auxiliary fields', async (t) => {
+  const port = createTestPort()
+  const child = spawn(process.execPath, ['server.js'], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      GEMINI_API_KEY: 'test-key',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+
+  t.after(() => {
+    if (!child.killed) {
+      child.kill()
+    }
+  })
+
+  await waitForServer(`http://localhost:${port}/api/health`)
+
+  const oversizedFieldResponse = await fetch(`http://localhost:${port}/api/analyze-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      incident: 'Valid incident text for testing field limits.',
+      locationHint: 'x'.repeat(501),
+      supportHint: 'Water',
+      source: 'Test',
+    }),
+  })
+
+  assert.equal(oversizedFieldResponse.status, 413)
+  const oversizedFieldPayload = await oversizedFieldResponse.json()
+  assert.equal(oversizedFieldPayload.code, 'FIELD_TOO_LARGE')
+})

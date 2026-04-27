@@ -115,6 +115,33 @@ function saveSnapshot() {
       console.warn('CommunityTriage local storage quota exceeded. Persistence is disabled until space is freed.')
     }
   }
+  debouncePersistToBackend()
+}
+
+let persistTimer = null
+
+function debouncePersistToBackend() {
+  if (persistTimer) clearTimeout(persistTimer)
+  persistTimer = setTimeout(persistToBackend, 2000)
+}
+
+async function persistToBackend() {
+  try {
+    await fetch('/api/state', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        selectedReportId: state.selectedReportId,
+        filters: state.filters,
+        reports: state.reports,
+        auditTrail: state.auditTrail,
+        nextReportNumber: state.nextReportNumber,
+        nextAuditNumber: state.nextAuditNumber,
+      }),
+    })
+  } catch {
+    // Silently fail; localStorage is the fallback
+  }
 }
 
 function normalizeUrgency(value) {
@@ -329,10 +356,14 @@ function buildMetrics(reports) {
 }
 
 function getDuplicateMatch(candidate) {
-  const candidateTokens = tokenize(`${candidate.title} ${candidate.summary} ${candidate.need} ${candidate.rawText}`)
   const ranked = state.reports
     .filter((report) => report.id !== candidate.id)
     .map((report) => {
+      if (triageCore?.calculateDuplicateSignals) {
+        const signals = triageCore.calculateDuplicateSignals(candidate, report)
+        return { report, score: signals.duplicateScore }
+      }
+      const candidateTokens = tokenize(`${candidate.title} ${candidate.summary} ${candidate.need} ${candidate.rawText}`)
       const existingTokens = tokenize(`${report.title} ${report.summary} ${report.need} ${report.rawText || ''}`)
       const shared = candidateTokens.filter((token) => existingTokens.includes(token))
       const overlap = shared.length / Math.max(candidateTokens.length, 1)
@@ -995,6 +1026,12 @@ async function handleReportSubmit(event) {
     return
   }
 
+  if (location.length > 500 || support.length > 500 || source.length > 500) {
+    state.analysisStatus = { kind: 'error', message: 'Location, support, and source fields must be under 500 characters.' }
+    render()
+    return
+  }
+
   state.analysisStatus = { kind: 'loading', message: 'Analyzing report...' }
   render()
 
@@ -1205,7 +1242,9 @@ function buildLocalReport({ incident, location, support, source }) {
   const template = getIssueTemplate('', incident)
   const confidence = Math.min(99, 64 + Math.min(12, tokenize(incident).length % 10) + (template.key === 'water' ? 12 : template.key === 'flood' ? 9 : template.key === 'medical' ? 7 : 4))
   const urgency = template.urgency
-  const score = Math.min(99, Math.round(confidence * 0.4 + (urgency === 'Critical' ? 96 : urgency === 'High' ? 84 : 68) * 0.35 + 18))
+  const score = triageCore?.calculateHybridPriorityScore
+    ? triageCore.calculateHybridPriorityScore({ confidence, urgency, fallbackScore: 70 })
+    : Math.min(99, Math.round(confidence * 0.4 + (urgency === 'Critical' ? 96 : urgency === 'High' ? 84 : 68) * 0.35 + 18))
   const report = normalizeReport({
     id: `CT-${state.nextReportNumber++}`,
     rawText: incident,
@@ -1240,7 +1279,9 @@ function buildBackendReport({ incident, location, support, source, analysis, mod
   const template = getIssueTemplate(analysis.issueType, incident)
   const urgency = normalizeUrgency(analysis.urgency || template.urgency)
   const confidence = clampNumber(analysis.confidence, 0, 100, 78)
-  const score = Math.min(99, Math.round(confidence * 0.4 + (urgency === 'Critical' ? 96 : urgency === 'High' ? 84 : 68) * 0.35 + 18))
+  const score = triageCore?.calculateHybridPriorityScore
+    ? triageCore.calculateHybridPriorityScore({ confidence, urgency, fallbackScore: 72 })
+    : Math.min(99, Math.round(confidence * 0.4 + (urgency === 'Critical' ? 96 : urgency === 'High' ? 84 : 68) * 0.35 + 18))
 
   const report = normalizeReport({
     id: `CT-${state.nextReportNumber++}`,
@@ -1388,3 +1429,27 @@ function render() {
 window.addEventListener('hashchange', render)
 render()
 syncBackendStatus()
+setInterval(syncBackendStatus, 60000)
+
+async function syncStateFromBackend() {
+  try {
+    const response = await fetch('/api/state')
+    if (!response.ok) return
+    const payload = await response.json()
+    if (!payload.state || !payload.state.reports?.length) return
+    const saved = loadSnapshot()
+    if (!saved || !saved.reports?.length) {
+      state.reports = payload.state.reports.map((r) => normalizeReport(r))
+      state.auditTrail = payload.state.auditTrail || state.auditTrail
+      state.selectedReportId = payload.state.selectedReportId || state.selectedReportId
+      state.filters = payload.state.filters || state.filters
+      state.nextReportNumber = payload.state.nextReportNumber || state.nextReportNumber
+      state.nextAuditNumber = payload.state.nextAuditNumber || state.nextAuditNumber
+      render()
+    }
+  } catch {
+    // Backend not available, use localStorage
+  }
+}
+
+syncStateFromBackend()

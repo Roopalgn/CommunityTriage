@@ -1,0 +1,30 @@
+Refactor my UI to follow a strict design system and improve usability, performance, and hierarchy.
+
+Goals:
+1. Establish clear visual hierarchy using typography scale and contrast
+2. Remove excessive glow, blur, and shadows — keep effects minimal and purposeful
+3. Implement an 8px spacing system consistently across all components
+4. Standardize components:
+   - Card (default, interactive)
+   - Button (primary, secondary, ghost)
+   - Badge (critical, high, medium)
+5. Fix navigation states:
+   - Active tab must be clearly distinguishable
+   - Remove glow from inactive tabs
+6. Redesign case cards:
+   - Separate title, metadata, description, metrics, and actions
+   - Reduce cognitive load
+7. Make sidebar visually secondary:
+   - Lower contrast and font size
+8. Improve accessibility:
+   - Ensure WCAG contrast ratios
+   - Add proper focus states
+9. Optimize performance:
+   - Remove unnecessary backdrop-blur and heavy shadows
+   - Reduce GPU-heavy effects
+10. Enforce consistent border radius, spacing, and color tokens
+
+Output:
+- Updated Tailwind (or CSS) design tokens
+- Refactored reusable components
+- Cleaner layout with better hierarchy

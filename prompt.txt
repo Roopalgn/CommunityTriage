@@ -1,297 +1,66 @@
-This is much better than your previous version — cleaner, calmer, more usable — but it’s still sitting at a “good hackathon UI” level, not “polished product” level.
+Elevate my UI from a clean dashboard to a high-signal, decision-focused interface.
 
-I’ll push you to that next level.
+Core goal:
+Make the UI guide user decisions instantly with minimal cognitive load.
 
-⚠️ What’s still holding it back (brutally honest)
-1. It’s visually flat now (you over-corrected)
+Improvements:
 
-You removed noise, but also removed depth cues.
+1. Visual hierarchy:
+   - Ensure only ONE dominant area per screen
+   - Make decision panels higher contrast than background content
 
-Everything:
+2. Add semantic color system:
+   - Encode urgency (critical/high/medium) into backgrounds, not just badges
+   - Use subtle gradients to reinforce severity
 
-same background tone
-same border weight
-same elevation
+3. Improve scanability:
+   - Add left border indicators for priority
+   - Increase visual weight of top-ranked items
+   - Reduce text density in lists
 
-👉 Result: UI feels dead, not premium.
+4. Reduce unused space:
+   - Compress hero/mission section into a compact action bar
+   - Prioritize actionable UI over descriptive UI
 
-Fix
+5. Enhance metrics:
+   - Emphasize numbers with size and color
+   - Add hover states and micro-interactions
 
-Introduce controlled elevation system:
-
-/* Level 0 */
-background: #0B1220;
-
-/* Level 1 (cards) */
-background: #121A2B;
-border: 1px solid rgba(255,255,255,0.06);
-
-/* Level 2 (active / hover) */
-background: #162235;
-border: 1px solid rgba(255,255,255,0.12);
-
-And:
-
-.card:hover {
-  transform: translateY(-2px);
-  transition: 150ms ease;
-}
-2. Your typography still lacks authority
-
-Problems:
-
-Headings are not bold enough
-Labels and values look similar
-Numbers don’t stand out
-
-👉 Especially bad in:
-
-metrics cards
-case detail panel
-Fix
-
-Create a strict type scale:
-
-h1 { font-size: 40px; font-weight: 700; }
-h2 { font-size: 28px; font-weight: 600; }
-h3 { font-size: 20px; font-weight: 600; }
-
-.label {
-  font-size: 12px;
-  color: #8FA3B8;
-  text-transform: uppercase;
-}
-
-.value {
-  font-size: 18px;
-  font-weight: 600;
-  color: #E6EDF3;
-}
-
-👉 This alone will make it feel 2× more “designed”.
-
-3. Metrics cards are weak (they should pop, but don’t)
-
-Right now:
-
-number + label
-same styling as everything else
-
-👉 These should be scannable anchors
-
-Fix
-.metric-number {
-  font-size: 36px;
-  font-weight: 700;
-  color: #4CC9F0;
-}
-
-.metric-card {
-  background: linear-gradient(
-    180deg,
-    rgba(76,201,240,0.08),
-    transparent
-  );
-}
-
-Also:
-
-Add subtle icon (📊, ⚠️, 👥)
-Increase spacing inside card
-4. Navigation still lacks strong “active” feedback
-
-Better than before, but still weak.
-
-👉 Active tab should be immediately obvious at a glance
-
-Fix
-.nav-active {
-  background: rgba(76,201,240,0.15);
-  color: #4CC9F0;
-  border: 1px solid rgba(76,201,240,0.4);
-}
-
-.nav-item:hover {
-  background: rgba(255,255,255,0.05);
-}
-
-Also:
-
-Add subtle icon + text alignment consistency
-Increase padding → clickable area
-5. Case list still has poor scan efficiency
-
-Problem:
-
-Text-heavy
-No visual anchors
-Everything left-aligned
-
-👉 Users should be able to scan priority in <1 sec
-
-Fix (CRITICAL)
-
-Re-layout each case row:
-
-[Priority Badge]   Title
-                   Meta (location · id)
-
-                   Description
-
-[Confidence %]     [Actions]
-
-And:
-
-Color-code priority left border
-.critical { border-left: 3px solid #FF6B6B; }
-.high { border-left: 3px solid #F59E0B; }
-.medium { border-left: 3px solid #3B82F6; }
-6. Right panel (Case Detail) is still too passive
-
-This should be your decision center, but it feels like a read-only card.
-
-Fix
-Add section separation
-Increase spacing
-Make actions dominant
-.section {
-  padding-top: 16px;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-
-Also:
-
-“Assign” should be PRIMARY button (bigger, colored)
-Inputs should feel interactive (currently too flat)
-7. Forms feel low quality (important)
-
-Your Intake page:
-
-inputs look like plain divs
-weak focus states
-no visual affordance
-Fix
-input, textarea {
-  background: #0F172A;
-  border: 1px solid rgba(255,255,255,0.08);
-  padding: 12px;
-  border-radius: 8px;
-}
-
-input:focus {
-  border: 1px solid #4CC9F0;
-  box-shadow: 0 0 0 2px rgba(76,201,240,0.2);
-}
-8. Volunteer cards are repetitive and boring
-
-All cards look identical → no hierarchy
-
-Fix
-Highlight top match visually
-.top-match {
-  border: 1px solid #4CC9F0;
-  background: rgba(76,201,240,0.08);
-}
-Turn % into progress bar
-9. Insights page = visually decent, but not insightful
-
-Right now:
-
-just numbers + bars
-
-👉 Feels like static UI, not intelligence
-
-Fix
-Add trend indicators (↑ ↓)
-Add comparison context
-“+12% from yesterday”
-Add tooltips / hover states
-10. No motion system (huge missed opportunity)
-
-Everything is static.
-
-👉 Modern dashboards rely on micro-interactions
-
-Add:
-hover lift on cards
-smooth tab transitions
-loading skeletons
-button press feedback
-🚀 What will actually make this feel “premium”
-Add these 4 things:
-1. Depth (controlled, not glow spam)
-
-→ layered backgrounds + hover lift
-
-2. Stronger typography contrast
-
-→ labels vs values must clearly differ
-
-3. Scan-first layout
-
-→ priority, status, actions visible instantly
-
-4. Micro-interactions
-
-→ subtle motion everywhere
-
-🤖 Updated Agent Prompt (use THIS version)
-Upgrade my UI from a basic dashboard to a polished, production-grade interface.
-
-Key improvements:
-
-1. Introduce a clear elevation system:
-   - 3 surface levels (base, card, hover/active)
-   - Subtle hover lift and transitions
-
-2. Improve typography hierarchy:
-   - Strong distinction between labels and values
-   - Larger, bolder numbers for metrics
-   - Consistent heading scale
-
-3. Redesign metric cards:
-   - Emphasize numbers visually
-   - Add subtle gradients or accents
-   - Improve spacing and alignment
-
-4. Fix navigation:
-   - Strong active state (color + background + border)
-   - Improve hover states and spacing
-
-5. Refactor case list for scanability:
-   - Add left border color based on priority
-   - Separate title, metadata, and description
-   - Improve layout hierarchy
-
-6. Enhance case detail panel:
-   - Add section dividers
-   - Improve spacing and readability
+6. Strengthen decision UI:
+   - Highlight recommended actions (e.g., best volunteer)
    - Make primary actions visually dominant
+   - Reduce friction for obvious decisions
 
-7. Upgrade form inputs:
-   - Add proper borders, focus states, and padding
-   - Improve usability and accessibility
+7. Improve motion:
+   - Add subtle transitions for hover, selection, and navigation
+   - Animate key feedback (assignment, selection)
 
-8. Improve volunteer cards:
-   - Highlight best match
-   - Add visual indicators (progress bars, badges)
+8. Upgrade forms:
+   - Stronger focus states
+   - Better input affordance
 
-9. Enhance insights:
-   - Add trend indicators and contextual data
-   - Improve data visualization clarity
+9. Add interpretation layer:
+   - Convert raw metrics into insights (e.g., “High load detected”)
 
-10. Add micro-interactions:
-   - Hover effects
-   - Smooth transitions
-   - Button feedback
-   - Loading states
-
-Constraints:
-- Keep design minimal and modern
-- Avoid heavy glow and excessive blur
-- Maintain performance (no expensive effects)
+10. Maintain constraints:
+   - Minimal, modern design
+   - No heavy glow or excessive blur
+   - Performance-first
 
 Output:
-- Updated design tokens
-- Refactored components
-- Improved layout structure
+- Updated component styles
+- Refined layout hierarchy
+- Improved interaction states
+
+Fix vertical layout issues across all pages:
+
+- Ensure app uses full viewport height (min-height: 100vh)
+- Convert layout to flex column structure
+- Make main content area flex: 1 so it fills remaining space
+- Ensure page sections expand vertically instead of collapsing
+- Use grid/flex layouts so side-by-side panels stretch to full height
+- Add overflow handling (scroll inside panels, not entire page)
+- Eliminate dead space at bottom of pages without using fixed heights
+
+Goal:
+Every screen should feel full, balanced, and vertically complete with no empty voids.

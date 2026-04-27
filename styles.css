@@ -31,6 +31,7 @@
 html, body {
   height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
@@ -40,24 +41,93 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  max-height: 100vh;
 }
 
 #root {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 main {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
-main > .container-fluid {
+/* Page container — fills remaining viewport */
+.ct-page {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  padding: 1rem 1rem 0.5rem;
+  overflow: hidden;
+}
+
+/* Flex row that stretches to fill remaining height */
+.ct-split {
+  flex: 1;
+  display: flex;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.ct-split-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ct-split-main {
+  flex: 7;
+}
+
+.ct-split-side {
+  flex: 5;
+}
+
+.ct-split-equal {
+  flex: 1;
+}
+
+/* Scrollable panel — fills its flex parent */
+.ct-scroll-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ct-scroll-panel > .ct-scroll-inner {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Grid that fills vertical space */
+.ct-grid-fill {
+  flex: 1;
+  display: grid;
+  min-height: 0;
+}
+
+@media (max-width: 991px) {
+  .ct-split {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .ct-split-main,
+  .ct-split-side {
+    flex: none;
+    min-height: auto;
+  }
 }
 
 /* ── Typography scale ── */
@@ -359,9 +429,10 @@ textarea.form-control {
 /* ── Detail Panel — Decision center (elevated surface) ── */
 
 .ct-detail-panel {
-  position: sticky;
-  top: 76px;
-  max-height: calc(100vh - 92px);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow-y: auto;
   background: var(--ct-surface-hover);
   border-color: var(--ct-border-hover);
@@ -369,8 +440,8 @@ textarea.form-control {
 
 @media (max-width: 991px) {
   .ct-detail-panel {
-    position: static;
-    max-height: none;
+    min-height: auto;
+    overflow-y: visible;
   }
 }
 
@@ -433,22 +504,47 @@ textarea.form-control {
   overflow: hidden;
 }
 
-/* Full-height row panels */
-.ct-row-stretch {
+/* Insights chart panels */
+.ct-insight-charts {
   flex: 1;
+  display: flex;
+  gap: 1rem;
+  min-height: 0;
 }
 
-.ct-row-stretch > .row {
+.ct-insight-charts > .ct-card {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.ct-row-stretch > .row > [class*="col-"] {
+/* Volunteer grid — fills vertically */
+.ct-vol-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  min-height: 0;
+  align-content: stretch;
+}
+
+.ct-vol-grid > .ct-card {
   display: flex;
   flex-direction: column;
 }
 
-.ct-row-stretch > .row > [class*="col-"] > .ct-card {
-  flex: 1;
+@media (max-width: 991px) {
+  .ct-vol-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 575px) {
+  .ct-vol-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Trend indicators */

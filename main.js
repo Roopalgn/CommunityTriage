@@ -231,35 +231,35 @@ function renderNavbar() {
 function renderOverviewPage() {
   const m = { triaged: state.reports.length, urgent: state.reports.filter(r => r.urgency === 'Critical' || r.urgency === 'High').length, volunteers: volunteers.length, review: state.reports.filter(r => r.reviewFlags.length).length }
   const focus = getSelectedReport()
-  const recentCases = getFilteredReports().slice(0, 4)
+  const recentCases = getFilteredReports().slice(0, 6)
   return `
-  <div class="container-fluid py-4 fade-in">
-    <div class="row g-3 mb-3">
-      <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-clipboard-data"></i></div><div class="metric-number">${m.triaged}</div><div class="metric-label">Reports Triaged</div></div></div>
-      <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="metric-number">${m.urgent}</div><div class="metric-label">Urgent Cases</div></div></div>
-      <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-people"></i></div><div class="metric-number">${m.volunteers}</div><div class="metric-label">Volunteers</div></div></div>
-      <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-flag"></i></div><div class="metric-number">${m.review}</div><div class="metric-label">Need Review</div></div></div>
+  <div class="ct-page fade-in">
+    <div class="d-flex gap-3 mb-3" style="flex-shrink:0">
+      <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-clipboard-data"></i></div><div class="metric-number">${m.triaged}</div><div class="metric-label">Triaged</div></div>
+      <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="metric-number">${m.urgent}</div><div class="metric-label">Urgent</div></div>
+      <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-people"></i></div><div class="metric-number">${m.volunteers}</div><div class="metric-label">Volunteers</div></div>
+      <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-flag"></i></div><div class="metric-number">${m.review}</div><div class="metric-label">Review</div></div>
     </div>
 
-    <div class="ct-card mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2 py-3">
+    <div class="ct-card d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 px-3 mb-3" style="flex-shrink:0">
       <div>
-        <span class="fw-bold">See the need. Rank the risk. Send the right help.</span>
-        <span class="text-secondary small ms-2 d-none d-md-inline">Use Gemini AI or local fallback to triage community reports.</span>
+        <span class="fw-bold small">See the need. Rank the risk. Send the right help.</span>
+        <span class="text-secondary small ms-2 d-none d-md-inline">Gemini AI or local fallback for triage.</span>
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-primary btn-sm" data-route="intake"><i class="bi bi-plus-circle me-1"></i>Analyze report</button>
+        <button class="btn btn-primary btn-sm" data-route="intake"><i class="bi bi-plus-circle me-1"></i>Analyze</button>
         <button class="btn btn-outline-light btn-sm" data-route="cases"><i class="bi bi-list-check me-1"></i>Cases</button>
         <button class="btn btn-outline-light btn-sm" id="reset-demo-btn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset</button>
       </div>
     </div>
 
-    <div class="row g-3 flex-grow-1">
-      <div class="col-lg-7 d-flex flex-column">
-        <div class="ct-card flex-grow-1 p-0">
-          <div class="p-3" style="border-bottom:1px solid var(--ct-border)">
+    <div class="ct-split">
+      <div class="ct-split-col ct-split-main">
+        <div class="ct-card ct-scroll-panel p-0">
+          <div class="p-3" style="border-bottom:1px solid var(--ct-border);flex-shrink:0">
             <div class="ct-eyebrow mb-0">Recent Cases</div>
           </div>
-          <div style="overflow-y:auto;flex:1">
+          <div class="ct-scroll-inner">
             ${recentCases.map(r => `
               <div class="ct-case-item priority-${r.urgency.toLowerCase()}" data-select-report="${sanitize(r.id)}" style="cursor:pointer">
                 <div class="d-flex justify-content-between align-items-start mb-1">
@@ -275,8 +275,8 @@ function renderOverviewPage() {
           </div>
         </div>
       </div>
-      <div class="col-lg-5 d-flex flex-column">
-        <div class="ct-card ct-detail-panel flex-grow-1" style="position:static;max-height:none">
+      <div class="ct-split-col ct-split-side">
+        <div class="ct-card ct-detail-panel">
           <div class="ct-eyebrow">Current Focus</div>
           <h5 class="fw-bold mb-2">${sanitize(focus.title)}</h5>
           <p class="text-secondary small mb-3">${sanitize(focus.summary)}</p>
@@ -287,7 +287,7 @@ function renderOverviewPage() {
             <div class="col-6 mt-2"><span class="ct-label d-block">Confidence</span><span class="ct-value">${focus.confidence}%</span></div>
           </div>
           <div class="ct-section">
-            <span class="ct-label d-block mb-1">Assigned</span>
+            <span class="ct-label d-block mb-1">Status</span>
             <span class="small">${focus.assignedVolunteerId ? sanitize(focus.status) : '<span class=\"text-secondary\">Unassigned</span>'}</span>
           </div>
           <div class="mt-auto pt-3">
@@ -308,23 +308,23 @@ function renderCasesPage() {
   const vol = volunteers.find(v => v.id === selected.assignedVolunteerId) || volunteers.find(v => v.id === selected.match?.id) || volunteers[0]
 
   return `
-  <div class="container-fluid py-4 fade-in">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="ct-page fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-3" style="flex-shrink:0">
       <div><h4 class="ct-section-title mb-0">Case Board</h4><p class="ct-section-desc mb-0">Ranked community reports with AI-powered triage</p></div>
       <button class="btn btn-primary btn-sm" data-route="intake"><i class="bi bi-plus me-1"></i>New report</button>
     </div>
-    <div class="row g-3 flex-grow-1">
-      <div class="col-lg-7 d-flex flex-column">
-        <div class="ct-card p-0 flex-grow-1 d-flex flex-column">
-          <div class="p-3" style="border-bottom:1px solid var(--ct-border)">
-            <div class="row g-2">
-              <div class="col-md-4"><input class="form-control form-control-sm" id="case-search" type="search" placeholder="Search cases..." value="${sanitize(state.filters.search)}" /></div>
-              <div class="col-md-3"><select class="form-select form-select-sm" id="urgency-filter">${['All', 'Critical', 'High', 'Medium'].map(v => `<option value="${v}" ${state.filters.urgency === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
-              <div class="col-md-3"><select class="form-select form-select-sm" id="location-filter">${locations.map(v => `<option value="${sanitize(v)}" ${state.filters.location === v ? 'selected' : ''}>${sanitize(v)}</option>`).join('')}</select></div>
-              <div class="col-md-2"><select class="form-select form-select-sm" id="sort-filter">${[{v:'priority',l:'Priority'},{v:'confidence',l:'Confidence'},{v:'location',l:'Location'}].map(o => `<option value="${o.v}" ${state.filters.sort === o.v ? 'selected' : ''}>${o.l}</option>`).join('')}</select></div>
+    <div class="ct-split">
+      <div class="ct-split-col ct-split-main">
+        <div class="ct-card ct-scroll-panel p-0">
+          <div class="p-3" style="border-bottom:1px solid var(--ct-border);flex-shrink:0">
+            <div class="d-flex gap-2 flex-wrap">
+              <input class="form-control form-control-sm" id="case-search" type="search" placeholder="Search..." value="${sanitize(state.filters.search)}" style="max-width:160px" />
+              <select class="form-select form-select-sm" id="urgency-filter" style="max-width:110px">${['All', 'Critical', 'High', 'Medium'].map(v => `<option value="${v}" ${state.filters.urgency === v ? 'selected' : ''}>${v}</option>`).join('')}</select>
+              <select class="form-select form-select-sm" id="location-filter" style="max-width:140px">${locations.map(v => `<option value="${sanitize(v)}" ${state.filters.location === v ? 'selected' : ''}>${sanitize(v)}</option>`).join('')}</select>
+              <select class="form-select form-select-sm" id="sort-filter" style="max-width:110px">${[{v:'priority',l:'Priority'},{v:'confidence',l:'Confidence'},{v:'location',l:'Location'}].map(o => `<option value="${o.v}" ${state.filters.sort === o.v ? 'selected' : ''}>${o.l}</option>`).join('')}</select>
             </div>
           </div>
-          <div style="overflow-y:auto;flex:1;min-height:200px">
+          <div class="ct-scroll-inner">
             ${filtered.length ? filtered.map(r => `
               <div class="ct-case-item priority-${r.urgency.toLowerCase()} ${r.id === selected.id ? 'selected' : ''}" data-select-report="${sanitize(r.id)}">
                 <div class="d-flex justify-content-between align-items-start mb-1">
@@ -343,8 +343,8 @@ function renderCasesPage() {
           </div>
         </div>
       </div>
-      <div class="col-lg-5 d-flex flex-column">
-        <div class="ct-card ct-detail-panel flex-grow-1">
+      <div class="ct-split-col ct-split-side">
+        <div class="ct-card ct-detail-panel">
           <div class="ct-eyebrow">Case Detail</div>
           <h5 class="fw-bold mb-1">${sanitize(selected.title)}</h5>
           <p class="text-secondary small mb-0">${sanitize(selected.summary)}</p>
@@ -365,18 +365,18 @@ function renderCasesPage() {
 
           <div class="ct-section">
             <div class="ct-eyebrow">Override</div>
-            <form id="override-form" data-report-id="${sanitize(selected.id)}" class="row g-2">
-              <div class="col-5"><select class="form-select form-select-sm" name="overrideUrgency">${['Critical','High','Medium'].map(v => `<option value="${v}" ${selected.urgency===v?'selected':''}>${v}</option>`).join('')}</select></div>
-              <div class="col-4"><input class="form-control form-control-sm" name="overrideScore" type="number" min="0" max="99" value="${selected.score}" /></div>
-              <div class="col-3"><button class="btn btn-outline-light btn-sm w-100" type="submit"><i class="bi bi-check2 me-1"></i>Set</button></div>
+            <form id="override-form" data-report-id="${sanitize(selected.id)}" class="d-flex gap-2">
+              <select class="form-select form-select-sm" name="overrideUrgency" style="max-width:110px">${['Critical','High','Medium'].map(v => `<option value="${v}" ${selected.urgency===v?'selected':''}>${v}</option>`).join('')}</select>
+              <input class="form-control form-control-sm" name="overrideScore" type="number" min="0" max="99" value="${selected.score}" style="max-width:70px" />
+              <button class="btn btn-outline-light btn-sm" type="submit"><i class="bi bi-check2"></i></button>
             </form>
           </div>
 
-          <div class="ct-section">
+          <div class="ct-section mt-auto">
             <div class="ct-eyebrow">Assignment</div>
             <select class="form-select form-select-sm mb-2" id="assignment-select" data-report-id="${sanitize(selected.id)}">${volunteers.map(v => `<option value="${sanitize(v.id)}" ${v.id === (selected.assignedVolunteerId || selected.match?.id) ? 'selected' : ''}>${sanitize(v.name)} (${v.score}%)</option>`).join('')}</select>
             <div class="d-flex gap-2">
-              <button class="btn btn-primary" data-assign-selected="${sanitize(selected.id)}"><i class="bi bi-person-check me-1"></i>Assign</button>
+              <button class="btn btn-primary flex-grow-1" data-assign-selected="${sanitize(selected.id)}"><i class="bi bi-person-check me-1"></i>Assign</button>
               <button class="btn btn-outline-danger btn-sm" data-unassign-report="${sanitize(selected.id)}" ${selected.assignedVolunteerId ? '' : 'disabled'}>Unassign</button>
             </div>
           </div>
@@ -390,27 +390,29 @@ function renderCasesPage() {
 
 function renderIntakePage() {
   return `
-  <div class="container-fluid py-4 fade-in">
-    <h4 class="ct-section-title">Report Intake</h4>
-    <p class="ct-section-desc mb-3">Submit a new incident for AI-powered triage. CSV batch import is also supported.</p>
-    <div class="row g-3 flex-grow-1">
-      <div class="col-lg-7 d-flex flex-column">
-        <div class="ct-card flex-grow-1">
+  <div class="ct-page fade-in">
+    <div style="flex-shrink:0">
+      <h4 class="ct-section-title">Report Intake</h4>
+      <p class="ct-section-desc mb-3">Submit a new incident for AI-powered triage. CSV batch import supported.</p>
+    </div>
+    <div class="ct-split">
+      <div class="ct-split-col ct-split-main">
+        <div class="ct-card flex-grow-1 d-flex flex-column">
           <div class="d-flex flex-wrap gap-2 mb-3">
             <button class="btn btn-outline-light btn-sm" data-demo-key="water"><i class="bi bi-droplet me-1"></i>Water crisis</button>
             <button class="btn btn-outline-light btn-sm" data-demo-key="flood"><i class="bi bi-cloud-rain me-1"></i>Flood relief</button>
             <button class="btn btn-outline-light btn-sm" data-demo-key="medical"><i class="bi bi-heart-pulse me-1"></i>Medical camp</button>
           </div>
-          <form id="report-form">
-            <div class="mb-3">
+          <form id="report-form" class="flex-grow-1 d-flex flex-column">
+            <div class="mb-3 flex-grow-1 d-flex flex-column">
               <label class="form-label ct-label">Incident report</label>
-              <textarea class="form-control" id="incident-field" name="incident" rows="4" maxlength="${INCIDENT_CHAR_LIMIT}" placeholder="Describe the community need..."></textarea>
+              <textarea class="form-control flex-grow-1" id="incident-field" name="incident" maxlength="${INCIDENT_CHAR_LIMIT}" placeholder="Describe the community need..." style="min-height:100px;resize:none"></textarea>
               <div class="form-text text-end small" id="incident-char-count">0/${INCIDENT_CHAR_LIMIT}</div>
             </div>
-            <div class="row g-3 mb-3">
-              <div class="col-md-4"><label class="form-label ct-label">Location</label><input class="form-control form-control-sm" name="location" placeholder="South District" /></div>
-              <div class="col-md-4"><label class="form-label ct-label">Support needed</label><input class="form-control form-control-sm" name="support" placeholder="Water, food, medical" /></div>
-              <div class="col-md-4"><label class="form-label ct-label">Source</label><input class="form-control form-control-sm" name="source" placeholder="Field note, survey" /></div>
+            <div class="d-flex gap-3 mb-3 flex-wrap">
+              <div class="flex-fill"><label class="form-label ct-label">Location</label><input class="form-control form-control-sm" name="location" placeholder="South District" /></div>
+              <div class="flex-fill"><label class="form-label ct-label">Support needed</label><input class="form-control form-control-sm" name="support" placeholder="Water, food, medical" /></div>
+              <div class="flex-fill"><label class="form-label ct-label">Source</label><input class="form-control form-control-sm" name="source" placeholder="Field note, survey" /></div>
             </div>
             <div class="mb-3">
               <label class="form-label ct-label">CSV batch import</label>
@@ -421,8 +423,8 @@ function renderIntakePage() {
           ${state.analysisStatus.message ? `<div class="alert alert-${state.analysisStatus.kind === 'error' ? 'danger' : state.analysisStatus.kind === 'success' ? 'success' : 'info'} mt-3 small py-2" role="alert">${sanitize(state.analysisStatus.message)}</div>` : ''}
         </div>
       </div>
-      <div class="col-lg-5 d-flex flex-column">
-        <div class="ct-card flex-grow-1">
+      <div class="ct-split-col ct-split-side">
+        <div class="ct-card flex-grow-1 d-flex flex-column">
           <div class="ct-eyebrow">How it works</div>
           <div class="mb-3">
             <div class="d-flex align-items-start gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold flex-shrink-0" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">1</span><span class="small">Text is sent to Google Gemini for structured extraction</span></div>
@@ -430,8 +432,8 @@ function renderIntakePage() {
             <div class="d-flex align-items-start gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold flex-shrink-0" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">3</span><span class="small">Best-fit volunteer is matched and assigned</span></div>
             <div class="d-flex align-items-start gap-2"><span class="badge bg-primary text-dark fw-bold flex-shrink-0" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">4</span><span class="small">If Gemini fails, local fallback ensures continuity</span></div>
           </div>
-          <div style="border-top:1px solid var(--ct-border);padding-top:0.75rem;margin-top:0.75rem">
-            <small class="text-secondary">${state.backend.geminiConfigured ? '<i class="bi bi-check-circle text-success me-1"></i>Gemini configured. Fallback available if needed.' : '<i class="bi bi-info-circle me-1"></i>Local fallback mode. Configure GEMINI_API_KEY for AI extraction.'}</small>
+          <div class="mt-auto" style="border-top:1px solid var(--ct-border);padding-top:0.75rem">
+            <small class="text-secondary">${state.backend.geminiConfigured ? '<i class="bi bi-check-circle text-success me-1"></i>Gemini configured. Fallback available.' : '<i class="bi bi-info-circle me-1"></i>Local fallback mode. Set GEMINI_API_KEY for AI.'}</small>
           </div>
         </div>
       </div>
@@ -446,18 +448,17 @@ function renderVolunteersPage() {
   const ranked = volunteers.map(v => ({ v, fit: buildVolunteerFit(selected, v) })).sort((a, b) => b.fit.score - a.fit.score)
   const topId = ranked[0]?.v.id
   return `
-  <div class="container-fluid py-4 fade-in">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="ct-page fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-3" style="flex-shrink:0">
       <div><h4 class="ct-section-title mb-0">Volunteer Coordination</h4><p class="ct-section-desc mb-0">Match the right person to the right case.</p></div>
       <span class="badge ${urgencyBadgeClass(selected.urgency)}">${sanitize(selected.title)}</span>
     </div>
-    <div class="row g-3 flex-grow-1">
+    <div class="ct-vol-grid">
       ${ranked.map(({ v, fit }) => {
         const isAssigned = selected.assignedVolunteerId === v.id
         const isTop = v.id === topId
         return `
-        <div class="col-md-6 col-lg-3 d-flex">
-          <div class="ct-card ct-card-lift ${isAssigned ? 'ct-card-active' : isTop ? 'ct-top-match' : ''} flex-grow-1 d-flex flex-column">
+          <div class="ct-card ct-card-lift ${isAssigned ? 'ct-card-active' : isTop ? 'ct-top-match' : ''} d-flex flex-column">
             <div class="d-flex justify-content-between align-items-start mb-1">
               <strong class="small">${sanitize(v.name)}</strong>
               ${isTop ? '<span class="ct-flag ct-flag-ok">Best match</span>' : ''}
@@ -470,8 +471,7 @@ function renderVolunteersPage() {
             </div>
             <div class="ct-progress-mini"><div class="fill" style="width:${fit.score}%"></div></div>
             <button class="btn ${isAssigned ? 'btn-primary' : 'btn-outline-light'} btn-sm w-100 mt-auto pt-2" data-assign-volunteer="${sanitize(selected.id)}" data-volunteer-id="${sanitize(v.id)}">${isAssigned ? '<i class="bi bi-check-circle me-1"></i>Assigned' : 'Assign to case'}</button>
-          </div>
-        </div>`
+          </div>`
       }).join('')}
     </div>
   </div>`
@@ -492,18 +492,20 @@ function renderInsightsPage() {
   function bars(items, p) { return items.map(([label, count]) => `<div class="d-flex align-items-center gap-2 mb-2"><span class="text-secondary small text-end" style="width:110px;flex-shrink:0;font-size:0.8rem">${sanitize(label)}</span><div class="ct-bar-track flex-grow-1"><div class="ct-bar-fill" style="width:${Math.max(8, Math.round(count/p*100))}%"></div></div><span class="small fw-600" style="width:24px;color:var(--ct-primary)">${count}</span></div>`).join('') }
 
   return `
-  <div class="container-fluid py-4 fade-in">
-    <h4 class="ct-section-title">Insights</h4>
-    <p class="ct-section-desc mb-3">Visual summary of need concentration, issue clusters, and extraction quality.</p>
-    <div class="row g-3 mb-3">
-      <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-geo-alt-fill"></i></div><div class="metric-number" style="font-size:1.25rem">${locItems[0]?.[0] || '-'}</div><div class="metric-label">Top Hotspot</div><span class="ct-trend-up">↑ Active</span></div></div>
-      <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-tag-fill"></i></div><div class="metric-number" style="font-size:1.25rem">${issueItems[0]?.[0] || '-'}</div><div class="metric-label">Top Issue</div><span class="ct-trend-neutral">${issueItems[0]?.[1] || 0} cases</span></div></div>
-      <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-shield-check"></i></div><div class="metric-number">${avgConf}%</div><div class="metric-label">Avg Confidence</div><span class="${avgConf >= 85 ? 'ct-trend-up' : 'ct-trend-neutral'}">${avgConf >= 85 ? '↑ High' : '→ Moderate'}</span></div></div>
-      <div class="col-6 col-md-3"><div class="ct-card ct-card-lift ct-metric"><div class="metric-icon"><i class="bi bi-exclamation-diamond"></i></div><div class="metric-number">${urgentPct}%</div><div class="metric-label">Urgent Share</div><span class="${urgentPct > 50 ? 'ct-trend-up' : 'ct-trend-neutral'}">${urgentPct > 50 ? '↑ High load' : '→ Manageable'}</span></div></div>
+  <div class="ct-page fade-in">
+    <div style="flex-shrink:0">
+      <h4 class="ct-section-title">Insights</h4>
+      <p class="ct-section-desc mb-3">Visual summary of need concentration, issue clusters, and extraction quality.</p>
     </div>
-    <div class="row g-3 flex-grow-1">
-      <div class="col-md-6 d-flex"><div class="ct-card flex-grow-1"><div class="ct-eyebrow">By Location</div>${locItems.length ? bars(locItems, peak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div></div>
-      <div class="col-md-6 d-flex"><div class="ct-card flex-grow-1"><div class="ct-eyebrow">By Issue Type</div>${issueItems.length ? bars(issueItems, issuePeak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div></div>
+    <div class="d-flex gap-3 mb-3" style="flex-shrink:0">
+      <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-geo-alt-fill"></i></div><div class="metric-number" style="font-size:1.25rem">${locItems[0]?.[0] || '-'}</div><div class="metric-label">Top Hotspot</div><span class="ct-trend-up">↑ Active</span></div>
+      <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-tag-fill"></i></div><div class="metric-number" style="font-size:1.25rem">${issueItems[0]?.[0] || '-'}</div><div class="metric-label">Top Issue</div><span class="ct-trend-neutral">${issueItems[0]?.[1] || 0} cases</span></div>
+      <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-shield-check"></i></div><div class="metric-number">${avgConf}%</div><div class="metric-label">Avg Confidence</div><span class="${avgConf >= 85 ? 'ct-trend-up' : 'ct-trend-neutral'}">${avgConf >= 85 ? '↑ High' : '→ Moderate'}</span></div>
+      <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-exclamation-diamond"></i></div><div class="metric-number">${urgentPct}%</div><div class="metric-label">Urgent Share</div><span class="${urgentPct > 50 ? 'ct-trend-up' : 'ct-trend-neutral'}">${urgentPct > 50 ? '↑ High load' : '→ Manageable'}</span></div>
+    </div>
+    <div class="ct-insight-charts">
+      <div class="ct-card flex-fill d-flex flex-column"><div class="ct-eyebrow">By Location</div>${locItems.length ? bars(locItems, peak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div>
+      <div class="ct-card flex-fill d-flex flex-column"><div class="ct-eyebrow">By Issue Type</div>${issueItems.length ? bars(issueItems, issuePeak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div>
     </div>
   </div>`
 }
@@ -512,13 +514,13 @@ function renderInsightsPage() {
 
 function renderAuditPage() {
   return `
-  <div class="container-fluid py-4 fade-in">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="ct-page fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-3" style="flex-shrink:0">
       <div><h4 class="ct-section-title mb-0">Audit Trail</h4><p class="ct-section-desc mb-0">Every action stays visible for trust and accountability.</p></div>
       <button class="btn btn-outline-light btn-sm" id="export-audit-btn"><i class="bi bi-download me-1"></i>Export JSON</button>
     </div>
-    <div class="ct-card p-0 flex-grow-1 d-flex flex-column" style="overflow:hidden">
-      <div style="overflow-y:auto;flex:1">
+    <div class="ct-card ct-scroll-panel p-0">
+      <div class="ct-scroll-inner">
       ${state.auditTrail.length ? state.auditTrail.map(e => `
         <div class="ct-case-item" style="cursor:default">
           <div class="d-flex justify-content-between align-items-start mb-1">

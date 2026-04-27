@@ -1,12 +1,16 @@
+/* ══════════════════════════════════════════════════════════════
+   CommunityTriage — Main Application (Bootstrap 5 Rebuild)
+   ══════════════════════════════════════════════════════════════ */
+
 const triageCore = typeof window !== 'undefined' ? window.CommunityTriageCore || null : null
 
 const navItems = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'cases', label: 'Cases' },
-  { id: 'intake', label: 'Intake' },
-  { id: 'volunteers', label: 'Volunteers' },
-  { id: 'insights', label: 'Insights' },
-  { id: 'audit', label: 'Audit' },
+  { id: 'overview', label: 'Overview', icon: 'bi-speedometer2' },
+  { id: 'cases', label: 'Cases', icon: 'bi-list-check' },
+  { id: 'intake', label: 'Intake', icon: 'bi-plus-circle' },
+  { id: 'volunteers', label: 'Volunteers', icon: 'bi-people' },
+  { id: 'insights', label: 'Insights', icon: 'bi-bar-chart' },
+  { id: 'audit', label: 'Audit', icon: 'bi-shield-check' },
 ]
 
 const root = document.getElementById('root')
@@ -35,254 +39,138 @@ const demoScenarios = {
   medical: { incident: 'A community health camp in Central Ward needs volunteers for registration, patient flow, and medicine runners for the afternoon shift.', location: 'Central Ward', support: 'Registration helpers, medical runners', source: 'NGO outreach request' },
 }
 
+// ── Utilities ──
+
 function sanitize(value) {
-  return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character] || character))
+  return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c))
 }
 
-function formatLocationSafe(value) {
-  if (triageCore?.formatLocation) return triageCore.formatLocation(value)
-  return formatLocation(value)
-}
-
-function normalizeUrgencySafe(value) {
-  if (triageCore?.normalizeUrgency) return triageCore.normalizeUrgency(value)
-  return normalizeUrgency(value)
-}
-
-function titleCase(value) {
-  return String(value)
-    .split(' ')
-    .filter(Boolean)
-    .map((part) => part[0].toUpperCase() + part.slice(1))
-    .join(' ')
-}
+function titleCase(v) { return String(v).split(' ').filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join(' ') }
 
 function formatLocation(value) {
-  const normalized = String(value || '').trim().toLowerCase()
+  if (triageCore?.formatLocation) return triageCore.formatLocation(value)
+  const n = String(value || '').trim().toLowerCase()
   const aliases = ['south district', 'central ward', 'riverside zone', 'north point', 'east market', 'west end']
-  const match = aliases.find((alias) => normalized.includes(alias))
-  return match ? titleCase(match) : titleCase(normalized || 'Community Zone')
+  const m = aliases.find(a => n.includes(a))
+  return m ? titleCase(m) : titleCase(n || 'Community Zone')
 }
 
-function summarizeText(text, limit = 96) {
-  const cleaned = String(text || '').trim().replace(/\s+/g, ' ')
-  return cleaned.length <= limit ? cleaned : `${cleaned.slice(0, limit - 1)}...`
+function normalizeUrgency(value) {
+  if (triageCore?.normalizeUrgency) return triageCore.normalizeUrgency(value)
+  const n = String(value || '').trim().toLowerCase()
+  if (n === 'critical') return 'Critical'
+  if (n === 'high') return 'High'
+  return 'Medium'
 }
 
 function tokenize(text) {
-  return String(text || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((token) => token.length > 2)
+  return String(text || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length > 2)
 }
 
+function summarizeText(text, limit = 120) {
+  const c = String(text || '').trim().replace(/\s+/g, ' ')
+  return c.length <= limit ? c : c.slice(0, limit - 1) + '…'
+}
+
+function clampNumber(v, min, max, fb) { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fb }
+
 function getPage() {
-  const hash = String(window.location.hash || '#overview').replace(/^#/, '').toLowerCase()
-  return ROUTES.has(hash) ? hash : 'overview'
+  const h = String(window.location.hash || '#overview').replace(/^#/, '').toLowerCase()
+  return ROUTES.has(h) ? h : 'overview'
 }
 
 function go(page) {
   const next = ROUTES.has(page) ? page : 'overview'
-  if (window.location.hash !== `#${next}`) {
-    window.location.hash = `#${next}`
-    return
-  }
+  if (window.location.hash !== `#${next}`) { window.location.hash = `#${next}`; return }
   render()
 }
 
-function loadSnapshot() {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
+function createClientRequestId() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID ? `client-${crypto.randomUUID()}` : `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`
 }
+
+// ── Persistence ──
+
+function loadSnapshot() { try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null } catch { return null } }
 
 function saveSnapshot() {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      selectedReportId: state.selectedReportId,
-      filters: state.filters,
-      reports: state.reports,
-      auditTrail: state.auditTrail,
-      nextReportNumber: state.nextReportNumber,
-      nextAuditNumber: state.nextAuditNumber,
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      selectedReportId: state.selectedReportId, filters: state.filters, reports: state.reports,
+      auditTrail: state.auditTrail, nextReportNumber: state.nextReportNumber, nextAuditNumber: state.nextAuditNumber,
     }))
-  } catch (error) {
-    if (error?.name === 'QuotaExceededError') {
-      console.warn('CommunityTriage local storage quota exceeded. Persistence is disabled until space is freed.')
-    }
-  }
+  } catch {}
   debouncePersistToBackend()
 }
 
 let persistTimer = null
-
-function debouncePersistToBackend() {
-  if (persistTimer) clearTimeout(persistTimer)
-  persistTimer = setTimeout(persistToBackend, 2000)
-}
-
+function debouncePersistToBackend() { if (persistTimer) clearTimeout(persistTimer); persistTimer = setTimeout(persistToBackend, 2000) }
 async function persistToBackend() {
-  try {
-    await fetch('/api/state', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        selectedReportId: state.selectedReportId,
-        filters: state.filters,
-        reports: state.reports,
-        auditTrail: state.auditTrail,
-        nextReportNumber: state.nextReportNumber,
-        nextAuditNumber: state.nextAuditNumber,
-      }),
-    })
-  } catch {
-    // Silently fail; localStorage is the fallback
-  }
+  try { await fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ selectedReportId: state.selectedReportId, filters: state.filters, reports: state.reports, auditTrail: state.auditTrail, nextReportNumber: state.nextReportNumber, nextAuditNumber: state.nextAuditNumber }) }) } catch {}
 }
 
-function normalizeUrgency(value) {
-  const normalized = String(value || '').trim().toLowerCase()
-
-  if (normalized === 'critical') {
-    return 'Critical'
-  }
-
-  if (normalized === 'high') {
-    return 'High'
-  }
-
-  return 'Medium'
-}
-
-function createClientRequestId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `client-${crypto.randomUUID()}`
-  }
-
-  return `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`
-}
+// ── State ──
 
 function getIssueTemplate(issueType, text) {
   const issue = String(issueType || '').toLowerCase()
   const body = String(text || '').toLowerCase()
-
-  if (issue.includes('water') || body.includes('water') || body.includes('pump')) {
-    return { key: 'water', title: 'Urgent water support request', issueType: 'Water shortage', need: 'Water delivery, purification tablets, and transport coordination', urgency: 'Critical' }
-  }
-  if (issue.includes('flood') || body.includes('flood') || body.includes('blanket')) {
-    return { key: 'flood', title: 'Flood response coordination needed', issueType: 'Flood relief', need: 'Food packets, blankets, and transport support', urgency: 'High' }
-  }
-  if (issue.includes('medical') || issue.includes('health') || body.includes('patient')) {
-    return { key: 'medical', title: 'Medical camp assistance required', issueType: 'Medical support', need: 'Registration support, patient flow, and medical runners', urgency: 'High' }
-  }
-  if (issue.includes('food') || body.includes('ration')) {
-    return { key: 'food', title: 'Food assistance needed', issueType: 'Food support', need: 'Meals, dry ration, and distribution help', urgency: 'High' }
-  }
-
+  if (issue.includes('water') || body.includes('water') || body.includes('pump')) return { key: 'water', title: 'Urgent water support request', issueType: 'Water shortage', need: 'Water delivery, purification tablets, and transport coordination', urgency: 'Critical' }
+  if (issue.includes('flood') || body.includes('flood') || body.includes('blanket')) return { key: 'flood', title: 'Flood response coordination needed', issueType: 'Flood relief', need: 'Food packets, blankets, and transport support', urgency: 'High' }
+  if (issue.includes('medical') || issue.includes('health') || body.includes('patient')) return { key: 'medical', title: 'Medical camp assistance required', issueType: 'Medical support', need: 'Registration support, patient flow, and medical runners', urgency: 'High' }
+  if (issue.includes('food') || body.includes('ration')) return { key: 'food', title: 'Food assistance needed', issueType: 'Food support', need: 'Meals, dry ration, and distribution help', urgency: 'High' }
   return { key: 'default', title: 'Community support report', issueType: issueType || 'General support', need: 'Field review and volunteer allocation', urgency: 'Medium' }
 }
 
 function buildVolunteerFit(report, volunteer) {
-  const expected = {
-    water: ['Logistics', 'Crowd coordination'],
-    flood: ['Procurement', 'Supply handling'],
-    medical: ['Medical support', 'Registration'],
-    food: ['Procurement', 'Crowd coordination'],
-    default: ['Field coordination', 'Rapid response'],
-  }[report.templateKey || 'default']
-
-  const matched = volunteer.skills.filter((skill) => expected.some((entry) => entry.toLowerCase() === skill.toLowerCase()))
+  const expected = { water: ['Logistics', 'Crowd coordination'], flood: ['Procurement', 'Supply handling'], medical: ['Medical support', 'Registration'], food: ['Procurement', 'Crowd coordination'], default: ['Field coordination', 'Rapid response'] }[report.templateKey || 'default']
+  const matched = volunteer.skills.filter(s => expected.some(e => e.toLowerCase() === s.toLowerCase()))
   const sameLocation = volunteer.location.toLowerCase() === report.location.toLowerCase()
   const speed = volunteer.availability.toLowerCase() === 'now' ? 8 : volunteer.availability.toLowerCase() === 'flexible' ? 4 : 1
   const urgencyBonus = report.urgency === 'Critical' ? 5 : report.urgency === 'High' ? 3 : 0
   const score = Math.min(99, 58 + matched.length * 14 + (sameLocation ? 14 : 0) + speed + urgencyBonus)
-
-  return {
-    score,
-    matched,
-    sameLocation,
-    summary: `${matched.join(', ') || 'general support'} | ${sameLocation ? 'same-location coverage' : 'cross-area support'} | availability ${volunteer.availability.toLowerCase()}.`,
-  }
+  return { score, matched, sameLocation, summary: `${matched.join(', ') || 'general support'} | ${sameLocation ? 'same location' : 'cross-area'} | avail: ${volunteer.availability.toLowerCase()}` }
 }
 
 function findBestVolunteer(report) {
-  return volunteers
-    .map((volunteer) => ({ volunteer, fit: buildVolunteerFit(report, volunteer) }))
-    .sort((left, right) => right.fit.score - left.fit.score)[0]
+  return volunteers.map(v => ({ volunteer: v, fit: buildVolunteerFit(report, v) })).sort((a, b) => b.fit.score - a.fit.score)[0]
 }
 
 function normalizeReport(seed) {
   const template = getIssueTemplate(seed.issueType, seed.summary)
-  const report = {
-    ...seed,
-    location: formatLocation(seed.location),
-    title: seed.title || template.title,
-    issueType: seed.issueType || template.issueType,
-    urgency: seed.urgency || template.urgency,
-    need: seed.need || template.need,
-    summary: summarizeText(seed.summary || seed.rawText || ''),
-    source: seed.source || 'Submitted through intake form',
-    affectedGroup: seed.affectedGroup || 'Community members',
-    templateKey: template.key,
-    assignedVolunteerId: seed.assignedVolunteerId || '',
-    duplicateOf: seed.duplicateOf || '',
-    manualOverride: seed.manualOverride || null,
-  }
-
-  const best = volunteers.find((volunteer) => volunteer.id === report.assignedVolunteerId) || findBestVolunteer(report).volunteer
+  const report = { ...seed, location: formatLocation(seed.location), title: seed.title || template.title, issueType: seed.issueType || template.issueType, urgency: seed.urgency || template.urgency, need: seed.need || template.need, summary: summarizeText(seed.summary || seed.rawText || ''), source: seed.source || 'Submitted through intake form', affectedGroup: seed.affectedGroup || 'Community members', templateKey: template.key, assignedVolunteerId: seed.assignedVolunteerId || '', duplicateOf: seed.duplicateOf || '', manualOverride: seed.manualOverride || null }
+  const best = volunteers.find(v => v.id === report.assignedVolunteerId) || findBestVolunteer(report).volunteer
   const fit = buildVolunteerFit(report, best)
-  report.match = { ...best, score: fit.score, reason: fit.summary, breakdown: buildVolunteerFit(report, best) }
+  report.match = { ...best, score: fit.score, reason: fit.summary, breakdown: fit }
   report.reviewFlags = []
-
-  if (report.confidence < 85) {
-    report.reviewFlags.push({ code: 'low-confidence', label: `Low confidence (${report.confidence}%)` })
-  }
-  if (report.duplicateOf) {
-    report.reviewFlags.push({ code: 'duplicate', label: `Possible duplicate of ${report.duplicateOf}` })
-  }
-
-  report.status = report.assignedVolunteerId
-    ? `Assigned to ${best.name}`
-    : report.duplicateOf
-      ? 'Flagged for duplicate review'
-      : report.confidence < 85
-        ? 'Needs human review'
-        : seed.status || 'Queue for review'
-
+  if (report.confidence < 85) report.reviewFlags.push({ code: 'low-confidence', label: `Low confidence (${report.confidence}%)` })
+  if (report.duplicateOf) report.reviewFlags.push({ code: 'duplicate', label: `Possible duplicate of ${report.duplicateOf}` })
+  report.status = report.assignedVolunteerId ? `Assigned to ${best.name}` : report.duplicateOf ? 'Flagged for duplicate review' : report.confidence < 85 ? 'Needs human review' : seed.status || 'Queue for review'
   return report
 }
 
-function buildAuditSeed(reports) {
-  return reports.map((report, index) => ({
-    id: `AT-${index + 1}`,
-    type: 'analyze',
-    reportId: report.id,
-    message: `Case ${report.id} entered the queue with ${report.urgency.toLowerCase()} urgency and ${report.confidence}% confidence.`,
-    timestamp: new Date(Date.now() - (index + 1) * 60000).toISOString(),
-    metadata: {},
-  }))
+function getDuplicateMatch(candidate) {
+  const ranked = state.reports.filter(r => r.id !== candidate.id).map(report => {
+    if (triageCore?.calculateDuplicateSignals) { const s = triageCore.calculateDuplicateSignals(candidate, report); return { report, score: s.duplicateScore } }
+    const ct = tokenize(`${candidate.title} ${candidate.summary} ${candidate.need} ${candidate.rawText}`)
+    const et = tokenize(`${report.title} ${report.summary} ${report.need} ${report.rawText || ''}`)
+    const shared = ct.filter(t => et.includes(t))
+    const overlap = shared.length / Math.max(ct.length, 1)
+    return { report, score: overlap * 0.55 + (report.location === candidate.location ? 0.2 : 0) + (report.issueType.toLowerCase() === candidate.issueType.toLowerCase() ? 0.2 : 0) + (report.source.toLowerCase() === candidate.source.toLowerCase() ? 0.05 : 0) }
+  }).sort((a, b) => b.score - a.score)
+  const top = ranked[0]
+  if (!top) return null
+  const threshold = top.report.source === 'Ward volunteer field note' ? 0.78 : 0.82
+  return top.score >= threshold ? top : null
 }
 
-function getStateSnapshot() {
-  const snapshot = loadSnapshot()
-  if (!snapshot) {
-    return null
-  }
-
-  return snapshot
-}
-
-const saved = getStateSnapshot()
-const initialReports = saved?.reports?.length ? saved.reports.map((report) => normalizeReport(report)) : seedReports.map((report) => normalizeReport(report))
+// Initialize state
+const saved = loadSnapshot()
+const initialReports = saved?.reports?.length ? saved.reports.map(r => normalizeReport(r)) : seedReports.map(r => normalizeReport(r))
 
 const state = {
   page: getPage(),
   reports: initialReports,
-  auditTrail: saved?.auditTrail?.length ? saved.auditTrail : buildAuditSeed(initialReports),
+  auditTrail: saved?.auditTrail?.length ? saved.auditTrail : initialReports.map((r, i) => ({ id: `AT-${i + 1}`, type: 'analyze', reportId: r.id, message: `Case ${r.id} entered queue with ${r.urgency.toLowerCase()} urgency.`, timestamp: new Date(Date.now() - (i + 1) * 60000).toISOString(), metadata: {} })),
   filters: saved?.filters || { search: '', urgency: 'All', location: 'All', sort: 'priority' },
   selectedReportId: saved?.selectedReportId || initialReports[0]?.id || null,
   nextReportNumber: saved?.nextReportNumber || 1045,
@@ -291,987 +179,423 @@ const state = {
   analysisStatus: { kind: 'idle', message: '' },
 }
 
-function getSelectedReport() {
-  return state.reports.find((report) => report.id === state.selectedReportId) || state.reports[0] || null
-}
+function getSelectedReport() { return state.reports.find(r => r.id === state.selectedReportId) || state.reports[0] || null }
 
 function getFilteredReports() {
-  const query = state.filters.search.trim().toLowerCase()
-
-  return [...state.reports]
-    .filter((report) => {
-      const matchesSearch = !query || [report.title, report.summary, report.location, report.issueType, report.need, report.source].join(' ').toLowerCase().includes(query)
-      const matchesUrgency = state.filters.urgency === 'All' || report.urgency === state.filters.urgency
-      const matchesLocation = state.filters.location === 'All' || report.location === state.filters.location
-      return matchesSearch && matchesUrgency && matchesLocation
-    })
-    .sort((left, right) => {
-      if (state.filters.sort === 'confidence') {
-        return right.confidence - left.confidence
-      }
-      if (state.filters.sort === 'location') {
-        return left.location.localeCompare(right.location)
-      }
-      return right.score - left.score
-    })
-}
-
-function buildAnalytics(reports) {
-  const byLocation = reports.reduce((accumulator, report) => {
-    accumulator[report.location] = (accumulator[report.location] || 0) + 1
-    return accumulator
-  }, {})
-
-  const byIssue = reports.reduce((accumulator, report) => {
-    accumulator[report.issueType] = (accumulator[report.issueType] || 0) + 1
-    return accumulator
-  }, {})
-
-  const locationHotspots = Object.entries(byLocation).sort((left, right) => right[1] - left[1]).slice(0, 4)
-  const issueHotspots = Object.entries(byIssue).sort((left, right) => right[1] - left[1]).slice(0, 4)
-  const topLocation = locationHotspots[0]
-  const topIssue = issueHotspots[0]
-  const averageConfidence = Math.round(reports.reduce((total, report) => total + report.confidence, 0) / Math.max(reports.length, 1))
-  const urgentShare = reports.length ? Math.round((reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length / reports.length) * 100) : 0
-
-  return {
-    topLocation: topLocation ? topLocation[0] : 'No location yet',
-    topLocationCount: topLocation ? topLocation[1] : 0,
-    topIssue: topIssue ? topIssue[0] : 'No issue yet',
-    topIssueCount: topIssue ? topIssue[1] : 0,
-    averageConfidence,
-    urgentShare,
-    locationHotspots,
-    issueHotspots,
-  }
-}
-
-function buildMetrics(reports) {
-  return {
-    triaged: reports.length,
-    urgent: reports.filter((report) => report.urgency === 'Critical' || report.urgency === 'High').length,
-    activeVolunteers: volunteers.length,
-    reviewQueue: reports.filter((report) => report.reviewFlags.length).length,
-  }
-}
-
-function getDuplicateMatch(candidate) {
-  const ranked = state.reports
-    .filter((report) => report.id !== candidate.id)
-    .map((report) => {
-      if (triageCore?.calculateDuplicateSignals) {
-        const signals = triageCore.calculateDuplicateSignals(candidate, report)
-        return { report, score: signals.duplicateScore }
-      }
-      const candidateTokens = tokenize(`${candidate.title} ${candidate.summary} ${candidate.need} ${candidate.rawText}`)
-      const existingTokens = tokenize(`${report.title} ${report.summary} ${report.need} ${report.rawText || ''}`)
-      const shared = candidateTokens.filter((token) => existingTokens.includes(token))
-      const overlap = shared.length / Math.max(candidateTokens.length, 1)
-      const sameLocation = report.location === candidate.location
-      const sameIssue = report.issueType.toLowerCase() === candidate.issueType.toLowerCase()
-      const sameSource = report.source.toLowerCase() === candidate.source.toLowerCase()
-      return { report, score: overlap * 0.55 + (sameLocation ? 0.2 : 0) + (sameIssue ? 0.2 : 0) + (sameSource ? 0.05 : 0) }
-    })
-    .sort((left, right) => right.score - left.score)
-
-  const top = ranked[0]
-  if (!top) {
-    return null
-  }
-
-  const threshold = top.report.source === 'Ward volunteer field note' ? 0.78 : 0.82
-  return top.score >= threshold ? top : null
-}
-
-function createAudit(type, reportId, message, metadata = {}) {
-  return {
-    id: `AT-${state.nextAuditNumber++}`,
-    type,
-    reportId,
-    message,
-    timestamp: new Date().toISOString(),
-    metadata,
-  }
+  const q = state.filters.search.trim().toLowerCase()
+  return [...state.reports].filter(r => {
+    const ms = !q || [r.title, r.summary, r.location, r.issueType, r.need, r.source].join(' ').toLowerCase().includes(q)
+    const mu = state.filters.urgency === 'All' || r.urgency === state.filters.urgency
+    const ml = state.filters.location === 'All' || r.location === state.filters.location
+    return ms && mu && ml
+  }).sort((a, b) => { if (state.filters.sort === 'confidence') return b.confidence - a.confidence; if (state.filters.sort === 'location') return a.location.localeCompare(b.location); return b.score - a.score })
 }
 
 function addAudit(type, reportId, message, metadata = {}) {
-  state.auditTrail = [createAudit(type, reportId, message, metadata), ...state.auditTrail].slice(0, AUDIT_LIMIT)
+  state.auditTrail = [{ id: `AT-${state.nextAuditNumber++}`, type, reportId, message, timestamp: new Date().toISOString(), metadata }, ...state.auditTrail].slice(0, AUDIT_LIMIT)
 }
 
-function renderBackendPill() {
-  if (state.backend.available && state.backend.geminiConfigured) {
-    return `<span class="status-pill status-pill--active" title="Gemini is configured and active"><span class="status-dot status-dot--active"></span>Gemini active</span>`
-  }
-  if (state.backend.available) {
-    return `<span class="status-pill status-pill--fallback" title="Backend online, Gemini not configured"><span class="status-dot status-dot--fallback"></span>Fallback mode</span>`
-  }
-  return `<span class="status-pill status-pill--offline" title="Backend not reachable"><span class="status-dot status-dot--offline"></span>Offline</span>`
+// ── Render: Navbar ──
+
+function urgencyBadgeClass(u) { return u === 'Critical' ? 'badge-critical' : u === 'High' ? 'badge-high' : 'badge-medium' }
+
+function renderStatusPill() {
+  if (state.backend.available && state.backend.geminiConfigured) return `<span class="ct-status-pill active"><span class="dot"></span>Gemini</span>`
+  if (state.backend.available) return `<span class="ct-status-pill fallback"><span class="dot"></span>Fallback</span>`
+  return `<span class="ct-status-pill offline"><span class="dot"></span>Offline</span>`
 }
 
-function renderHeader() {
-  const focus = getSelectedReport()
-
+function renderNavbar() {
   return `
-    <header class="topbar reveal">
-      <div class="brand-block">
-        <div class="brand-mark">CT</div>
-        <div>
-          <strong>CommunityTriage</strong>
-          <p>Fast, explainable triage for urgent community needs.</p>
-        </div>
-        ${renderBackendPill()}
+  <nav class="navbar navbar-expand-lg ct-navbar sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#overview">
+        <span class="ct-brand-icon">CT</span>
+        CommunityTriage
+      </a>
+      ${renderStatusPill()}
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav ms-auto gap-1">
+          ${navItems.map(item => `<li class="nav-item"><a class="nav-link ${state.page === item.id ? 'active' : ''}" href="#${item.id}" data-route="${item.id}"><i class="bi ${item.icon} me-1"></i>${item.label}</a></li>`).join('')}
+        </ul>
       </div>
-
-      <nav class="nav-pills" aria-label="Primary">
-        ${navItems.map((item) => `<button type="button" class="nav-chip ${state.page === item.id ? 'active' : ''}" data-route="${item.id}" aria-current="${state.page === item.id ? 'page' : 'false'}">${item.label}</button>`).join('')}
-      </nav>
-
-      <aside class="focus-card">
-        <span>Today in focus</span>
-        <strong>${sanitize(focus.title)}</strong>
-        <p>${sanitize(focus.reason)}</p>
-      </aside>
-    </header>
-  `
+    </div>
+  </nav>`
 }
+
+// ── Render: Overview ──
 
 function renderOverviewPage() {
-  const metrics = buildMetrics(state.reports)
-  const analytics = buildAnalytics(state.reports)
+  const m = { triaged: state.reports.length, urgent: state.reports.filter(r => r.urgency === 'Critical' || r.urgency === 'High').length, volunteers: volunteers.length, review: state.reports.filter(r => r.reviewFlags.length).length }
   const focus = getSelectedReport()
-
   return `
-    <section class="page">
-      <div class="hero-grid">
-        <article class="hero-card reveal">
-          <span class="eyebrow">Phase 1 live demo</span>
-          <h1>See the need. Rank the risk. Send the right help.</h1>
-          <p>Bring in a community report, structure it with Gemini or a safe fallback, and give coordinators a clear next step with visible reasoning.</p>
-          <div class="hero-actions">
-            <button type="button" data-route="intake">Analyze a report</button>
-            <button type="button" class="ghost-button" data-route="cases">Open case board</button>
-            <button type="button" class="ghost-button" id="reset-demo-btn" title="Reset to seed data for a clean demo">Reset demo</button>
-          </div>
-          <div class="hero-steps">
-            <div><strong>1.</strong><span>Capture the report</span></div>
-            <div><strong>2.</strong><span>Score urgency</span></div>
-            <div><strong>3.</strong><span>Assign the right volunteer</span></div>
-          </div>
-        </article>
+  <div class="container-fluid py-4 fade-in">
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3"><div class="ct-card ct-stat"><div class="value">${m.triaged}</div><div class="label">Reports Triaged</div></div></div>
+      <div class="col-6 col-md-3"><div class="ct-card ct-stat"><div class="value">${m.urgent}</div><div class="label">Urgent Cases</div></div></div>
+      <div class="col-6 col-md-3"><div class="ct-card ct-stat"><div class="value">${m.volunteers}</div><div class="label">Volunteers</div></div></div>
+      <div class="col-6 col-md-3"><div class="ct-card ct-stat"><div class="value">${m.review}</div><div class="label">Need Review</div></div></div>
+    </div>
 
-        <aside class="spotlight-card reveal">
-          <span class="eyebrow">Current focus</span>
-          <strong>${sanitize(focus.title)}</strong>
-          <p>${sanitize(focus.summary)}</p>
-          <div class="spotlight-meta">
-            <div><span>Location</span><strong>${sanitize(focus.location)}</strong></div>
-            <div><span>Urgency</span><strong>${sanitize(focus.urgency)}</strong></div>
-            <div><span>Priority</span><strong>${focus.score}%</strong></div>
-            <div><span>Confidence</span><strong>${focus.confidence}%</strong></div>
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="ct-card">
+          <div class="ct-eyebrow">Mission</div>
+          <h2 class="fw-800 mb-2" style="font-size:1.75rem">See the need. Rank the risk. Send the right help.</h2>
+          <p class="text-secondary mb-3">Bring in a community report, structure it with Google Gemini or a safe fallback, and give coordinators a clear next step with full reasoning.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-primary btn-sm" data-route="intake"><i class="bi bi-plus-circle me-1"></i>Analyze a report</button>
+            <button class="btn btn-outline-light btn-sm" data-route="cases"><i class="bi bi-list-check me-1"></i>Open case board</button>
+            <button class="btn btn-outline-secondary btn-sm" id="reset-demo-btn"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset demo</button>
           </div>
-        </aside>
+          <div class="row g-2 mt-3">
+            <div class="col-4"><div class="ct-card text-center p-2"><strong class="d-block">1</strong><small class="text-secondary">Capture</small></div></div>
+            <div class="col-4"><div class="ct-card text-center p-2"><strong class="d-block">2</strong><small class="text-secondary">Score</small></div></div>
+            <div class="col-4"><div class="ct-card text-center p-2"><strong class="d-block">3</strong><small class="text-secondary">Assign</small></div></div>
+          </div>
+        </div>
       </div>
-
-      <div class="stats-grid">
-        <article class="stat-card reveal"><span>Reports triaged</span><strong>${metrics.triaged}</strong><small>Cases currently in the queue.</small></article>
-        <article class="stat-card reveal"><span>Urgent cases</span><strong>${metrics.urgent}</strong><small>Critical or high-priority items waiting on response.</small></article>
-        <article class="stat-card reveal"><span>Active volunteers</span><strong>${metrics.activeVolunteers}</strong><small>Profiles available for matching.</small></article>
-        <article class="stat-card reveal"><span>Review queue</span><strong>${metrics.reviewQueue}</strong><small>Cases needing human review.</small></article>
-      </div>
-
-      <div class="feature-grid">
-        <article class="feature-card reveal">
-          <span class="eyebrow">Intelligence</span>
-          <h2>Hotspots and extraction quality</h2>
-          <p>Track the concentration of need by location and issue type, while keeping the extraction path transparent for judges.</p>
-          <div class="mini-grid">
-            <div class="mini-card"><span>Top hotspot</span><strong>${sanitize(analytics.topLocation)}</strong></div>
-            <div class="mini-card"><span>Dominant issue</span><strong>${sanitize(analytics.topIssue)}</strong></div>
-            <div class="mini-card"><span>Avg confidence</span><strong>${analytics.averageConfidence}%</strong></div>
-            <div class="mini-card"><span>Urgent share</span><strong>${analytics.urgentShare}%</strong></div>
+      <div class="col-lg-5">
+        <div class="ct-card h-100">
+          <div class="ct-eyebrow">Current Focus</div>
+          <h5 class="fw-700 mb-2">${sanitize(focus.title)}</h5>
+          <p class="text-secondary small mb-3">${sanitize(focus.summary)}</p>
+          <div class="row g-2">
+            <div class="col-6"><small class="text-secondary d-block">Location</small><strong>${sanitize(focus.location)}</strong></div>
+            <div class="col-6"><small class="text-secondary d-block">Urgency</small><span class="badge ${urgencyBadgeClass(focus.urgency)}">${focus.urgency}</span></div>
+            <div class="col-6"><small class="text-secondary d-block">Priority</small><strong>${focus.score}%</strong></div>
+            <div class="col-6"><small class="text-secondary d-block">Confidence</small><strong>${focus.confidence}%</strong></div>
           </div>
-        </article>
-
-        <article class="feature-card reveal">
-          <span class="eyebrow">Trust layer</span>
-          <h2>Human-in-the-loop by design</h2>
-          <p>Manual overrides, duplicate flags, assignment control, and audit events keep the workflow realistic instead of overly automated.</p>
-          <div class="badge-row">
-            <span>Manual override</span><span>Review flags</span><span>Assignment reasoning</span><span>Audit trail</span>
-          </div>
-        </article>
+        </div>
       </div>
-    </section>
-  `
+    </div>
+  </div>`
 }
+
+// ── Render: Cases ──
 
 function renderCasesPage() {
   const selected = getSelectedReport()
-  const selectedVolunteer = volunteers.find((item) => item.id === selected.assignedVolunteerId) || volunteers.find((item) => item.id === selected.match?.id) || volunteers[0]
-  const filteredReports = getFilteredReports()
-  const locations = ['All', ...new Set(state.reports.map((report) => report.location))]
+  const filtered = getFilteredReports()
+  const locations = ['All', ...new Set(state.reports.map(r => r.location))]
+  const vol = volunteers.find(v => v.id === selected.assignedVolunteerId) || volunteers.find(v => v.id === selected.match?.id) || volunteers[0]
 
   return `
-    <section class="page">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Case board</span>
-          <h1>Ranked community reports</h1>
-          <p>Choose a report, inspect the explanation, override the priority if needed, and assign the best available volunteer.</p>
+  <div class="container-fluid py-4 fade-in">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <div><h4 class="ct-section-title">Case Board</h4><p class="ct-section-desc mb-0">Ranked community reports with AI-powered triage</p></div>
+      <button class="btn btn-primary btn-sm" data-route="intake"><i class="bi bi-plus me-1"></i>New report</button>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="ct-card p-0">
+          <div class="p-3 border-bottom" style="border-color:var(--ct-border)!important">
+            <div class="row g-2">
+              <div class="col-md-4"><input class="form-control form-control-sm" id="case-search" type="search" placeholder="Search..." value="${sanitize(state.filters.search)}" /></div>
+              <div class="col-md-3"><select class="form-select form-select-sm" id="urgency-filter">${['All', 'Critical', 'High', 'Medium'].map(v => `<option value="${v}" ${state.filters.urgency === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+              <div class="col-md-3"><select class="form-select form-select-sm" id="location-filter">${locations.map(v => `<option value="${sanitize(v)}" ${state.filters.location === v ? 'selected' : ''}>${sanitize(v)}</option>`).join('')}</select></div>
+              <div class="col-md-2"><select class="form-select form-select-sm" id="sort-filter">${[{v:'priority',l:'Priority'},{v:'confidence',l:'Confidence'},{v:'location',l:'Location'}].map(o => `<option value="${o.v}" ${state.filters.sort === o.v ? 'selected' : ''}>${o.l}</option>`).join('')}</select></div>
+            </div>
+          </div>
+          <div style="max-height:60vh;overflow-y:auto">
+            ${filtered.length ? filtered.map(r => `
+              <div class="ct-case-item ${r.id === selected.id ? 'selected' : ''}" data-select-report="${sanitize(r.id)}">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <strong class="small">${sanitize(r.title)}</strong>
+                  <span class="badge ${urgencyBadgeClass(r.urgency)} ms-2">${r.urgency}</span>
+                </div>
+                <p class="text-secondary small mb-1 text-truncate-2">${sanitize(r.summary)}</p>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                  <small class="text-secondary"><i class="bi bi-geo-alt"></i> ${sanitize(r.location)}</small>
+                  <small class="text-secondary"><i class="bi bi-bullseye"></i> ${r.score}%</small>
+                  <small class="text-secondary">${sanitize(r.id)}</small>
+                  ${r.reviewFlags.map(f => `<span class="ct-flag ct-flag-${f.code}">${sanitize(f.label)}</span>`).join('')}
+                </div>
+              </div>
+            `).join('') : '<div class="p-4 text-center text-secondary">No cases match filters</div>'}
+          </div>
         </div>
-        <button type="button" data-route="intake">New report</button>
       </div>
-
-      <div class="cases-layout">
-        <article class="panel">
-          <div class="filter-bar">
-            <input id="case-search" aria-label="Search cases" type="search" value="${sanitize(state.filters.search)}" placeholder="Search reports, locations, or sources" />
-            <select id="urgency-filter" aria-label="Filter by urgency">${['All', 'Critical', 'High', 'Medium'].map((value) => `<option value="${value}" ${state.filters.urgency === value ? 'selected' : ''}>${value}</option>`).join('')}</select>
-            <select id="location-filter" aria-label="Filter by location">${locations.map((value) => `<option value="${sanitize(value)}" ${state.filters.location === value ? 'selected' : ''}>${sanitize(value)}</option>`).join('')}</select>
-            <select id="sort-filter" aria-label="Sort case list">${[
-              { value: 'priority', label: 'Sort by priority' },
-              { value: 'confidence', label: 'Sort by confidence' },
-              { value: 'location', label: 'Sort by location' },
-            ].map((option) => `<option value="${option.value}" ${state.filters.sort === option.value ? 'selected' : ''}>${option.label}</option>`).join('')}</select>
+      <div class="col-lg-5">
+        <div class="ct-card ct-detail-panel">
+          <div class="ct-eyebrow">Case Detail</div>
+          <h5 class="fw-700 mb-1">${sanitize(selected.title)}</h5>
+          <p class="text-secondary small mb-3">${sanitize(selected.summary)}</p>
+          <div class="row g-2 mb-3">
+            <div class="col-6"><small class="text-secondary d-block">Issue</small><strong class="small">${sanitize(selected.issueType)}</strong></div>
+            <div class="col-6"><small class="text-secondary d-block">Location</small><strong class="small">${sanitize(selected.location)}</strong></div>
+            <div class="col-6"><small class="text-secondary d-block">Priority</small><strong class="small">${selected.score}%</strong></div>
+            <div class="col-6"><small class="text-secondary d-block">Confidence</small><strong class="small">${selected.confidence}%</strong></div>
           </div>
-
-          <div class="case-list">
-            ${filteredReports.length ? filteredReports.map((report) => `
-              <article class="case-card ${report.id === selected.id ? 'active' : ''}">
-                <div class="case-head">
-                  <div>
-                    <strong>${sanitize(report.title)}</strong>
-                    <small>${sanitize(report.issueType)} · ${sanitize(report.location)}</small>
-                  </div>
-                  <span>${sanitize(report.urgency)}</span>
-                </div>
-                <p>${sanitize(report.summary)}</p>
-                <div class="case-meta">
-                  <span>${sanitize(report.id)}</span>
-                  <span>${sanitize(report.source)}</span>
-                  <span>${report.score}% priority</span>
-                  <span>${report.confidence}% confidence</span>
-                </div>
-                ${report.reviewFlags.length ? `<div class="flag-row">${report.reviewFlags.map((flag) => `<span class="flag-chip ${sanitize(flag.code)}">${sanitize(flag.label)}</span>`).join('')}</div>` : ''}
-                <div class="case-actions">
-                  <button type="button" class="ghost-button" data-select-report="${sanitize(report.id)}">View details</button>
-                  ${report.assignedVolunteerId ? `<button type="button" class="ghost-button danger" data-unassign-report="${sanitize(report.id)}">Unassign</button>` : `<button type="button" data-assign-suggested="${sanitize(report.id)}">Assign suggested</button>`}
-                </div>
-              </article>
-            `).join('') : '<div class="empty-state">No cases match the current filters. Try clearing search or changing urgency and location filters.</div>'}
+          <div class="mb-3">
+            <small class="text-secondary d-block mb-1">Flags</small>
+            ${selected.reviewFlags.length ? selected.reviewFlags.map(f => `<span class="ct-flag ct-flag-${f.code} me-1">${sanitize(f.label)}</span>`).join('') : '<span class="ct-flag ct-flag-ok">No flags</span>'}
           </div>
-        </article>
-
-        <aside class="panel detail-panel">
-          <div class="panel-head">
-            <span class="eyebrow">Case detail</span>
-            <h2>Human review and assignment</h2>
+          <hr class="border-secondary opacity-25">
+          <div class="ct-eyebrow">Override</div>
+          <form id="override-form" data-report-id="${sanitize(selected.id)}" class="row g-2 mb-3">
+            <div class="col-6"><select class="form-select form-select-sm" name="overrideUrgency">${['Critical','High','Medium'].map(v => `<option value="${v}" ${selected.urgency===v?'selected':''}>${v}</option>`).join('')}</select></div>
+            <div class="col-4"><input class="form-control form-control-sm" name="overrideScore" type="number" min="0" max="99" value="${selected.score}" /></div>
+            <div class="col-2"><button class="btn btn-outline-light btn-sm w-100" type="submit"><i class="bi bi-check"></i></button></div>
+          </form>
+          <hr class="border-secondary opacity-25">
+          <div class="ct-eyebrow">Assignment</div>
+          <div class="d-flex gap-2 align-items-center mb-2">
+            <select class="form-select form-select-sm" id="assignment-select" data-report-id="${sanitize(selected.id)}">${volunteers.map(v => `<option value="${sanitize(v.id)}" ${v.id === (selected.assignedVolunteerId || selected.match?.id) ? 'selected' : ''}>${sanitize(v.name)}</option>`).join('')}</select>
           </div>
-
-          <article class="detail-card">
-            <div class="detail-topline">
-              <div>
-                <strong>${sanitize(selected.title)}</strong>
-                <p>${sanitize(selected.summary)}</p>
-              </div>
-              <span>${sanitize(selected.id)}</span>
-            </div>
-
-            <div class="detail-grid">
-              <div><span>Issue</span><strong>${sanitize(selected.issueType)}</strong></div>
-              <div><span>Location</span><strong>${sanitize(selected.location)}</strong></div>
-              <div><span>Urgency</span><strong>${sanitize(selected.urgency)}</strong></div>
-              <div><span>Priority score</span><strong>${selected.score}%</strong></div>
-              <div><span>Confidence</span><strong>${selected.confidence}%</strong></div>
-              <div><span>Volunteer</span><strong>${sanitize(selectedVolunteer.name)}</strong></div>
-            </div>
-
-            <div class="review-box">
-              <span class="eyebrow">Review flags</span>
-              <div class="flag-row">${selected.reviewFlags.length ? selected.reviewFlags.map((flag) => `<span class="flag-chip ${sanitize(flag.code)}">${sanitize(flag.label)}</span>`).join('') : '<span class="flag-chip ok">No review flags</span>'}</div>
-            </div>
-
-            <form class="override-form" id="override-form" data-report-id="${sanitize(selected.id)}">
-              <label>
-                <span>Manual urgency override</span>
-                <select name="overrideUrgency">${['Critical', 'High', 'Medium'].map((value) => `<option value="${value}" ${selected.urgency === value ? 'selected' : ''}>${value}</option>`).join('')}</select>
-              </label>
-              <label>
-                <span>Manual priority score</span>
-                <input name="overrideScore" type="number" min="0" max="99" value="${selected.score}" />
-              </label>
-              <button type="submit">Apply override</button>
-            </form>
-
-            <div class="assignment-panel">
-              <label>
-                <span class="eyebrow">Assignment picker</span>
-                <select id="assignment-select" data-report-id="${sanitize(selected.id)}">${volunteers.map((volunteer) => `<option value="${sanitize(volunteer.id)}" ${volunteer.id === (selected.assignedVolunteerId || selected.match?.id) ? 'selected' : ''}>${sanitize(volunteer.name)} · ${sanitize(volunteer.location)} · ${sanitize(volunteer.availability)}</option>`).join('')}</select>
-              </label>
-              <div class="assignment-actions">
-                <button type="button" data-assign-selected="${sanitize(selected.id)}">Assign selected volunteer</button>
-                <button type="button" class="ghost-button danger" data-unassign-report="${sanitize(selected.id)}" ${selected.assignedVolunteerId ? '' : 'disabled'}>Unassign</button>
-              </div>
-            </div>
-          </article>
-        </aside>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm" data-assign-selected="${sanitize(selected.id)}"><i class="bi bi-person-check me-1"></i>Assign</button>
+            <button class="btn btn-outline-danger btn-sm" data-unassign-report="${sanitize(selected.id)}" ${selected.assignedVolunteerId ? '' : 'disabled'}>Unassign</button>
+          </div>
+        </div>
       </div>
-    </section>
-  `
+    </div>
+  </div>`
 }
+
+// ── Render: Intake ──
 
 function renderIntakePage() {
-  const latest = getSelectedReport()
-
   return `
-    <section class="page">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Report intake</span>
-          <h1>Submit a new incident</h1>
-          <p>Use free text, a location hint, and support hint to produce a structured triage result. CSV import is supported for batch reports.</p>
+  <div class="container-fluid py-4 fade-in">
+    <h4 class="ct-section-title">Report Intake</h4>
+    <p class="ct-section-desc">Submit a new incident for AI-powered triage. CSV batch import is also supported.</p>
+    <div class="row g-4">
+      <div class="col-lg-7">
+        <div class="ct-card">
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button class="btn btn-outline-light btn-sm" data-demo-key="water"><i class="bi bi-droplet me-1"></i>Water crisis</button>
+            <button class="btn btn-outline-light btn-sm" data-demo-key="flood"><i class="bi bi-cloud-rain me-1"></i>Flood relief</button>
+            <button class="btn btn-outline-light btn-sm" data-demo-key="medical"><i class="bi bi-heart-pulse me-1"></i>Medical camp</button>
+          </div>
+          <form id="report-form">
+            <div class="mb-3">
+              <label class="form-label small fw-600">Incident report</label>
+              <textarea class="form-control" id="incident-field" name="incident" rows="5" maxlength="${INCIDENT_CHAR_LIMIT}" placeholder="Describe the community need..."></textarea>
+              <div class="form-text text-end" id="incident-char-count">0/${INCIDENT_CHAR_LIMIT}</div>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-md-4"><label class="form-label small fw-600">Location</label><input class="form-control form-control-sm" name="location" placeholder="South District" /></div>
+              <div class="col-md-4"><label class="form-label small fw-600">Support needed</label><input class="form-control form-control-sm" name="support" placeholder="Water, food, medical" /></div>
+              <div class="col-md-4"><label class="form-label small fw-600">Source</label><input class="form-control form-control-sm" name="source" placeholder="Field note, survey" /></div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-600">CSV batch import</label>
+              <input class="form-control form-control-sm" id="csv-upload" type="file" accept=".csv,text/csv" />
+            </div>
+            <button type="submit" class="btn btn-primary" id="analyze-button">${state.analysisStatus.kind === 'loading' ? '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing...' : '<i class="bi bi-cpu me-1"></i>Analyze report'}</button>
+          </form>
+          ${state.analysisStatus.message ? `<div class="alert alert-${state.analysisStatus.kind === 'error' ? 'danger' : state.analysisStatus.kind === 'success' ? 'success' : 'info'} mt-3 small" role="alert">${sanitize(state.analysisStatus.message)}</div>` : ''}
         </div>
       </div>
-
-      <div class="intake-layout">
-        <article class="panel">
-          <div class="preset-row">
-            <button type="button" class="ghost-button" data-demo-key="water">Load water crisis</button>
-            <button type="button" class="ghost-button" data-demo-key="flood">Load flood relief</button>
-            <button type="button" class="ghost-button" data-demo-key="medical">Load medical camp</button>
+      <div class="col-lg-5">
+        <div class="ct-card">
+          <div class="ct-eyebrow">How it works</div>
+          <div class="mb-3">
+            <div class="d-flex align-items-center gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold">1</span><span class="small">Text is sent to Google Gemini for structured extraction</span></div>
+            <div class="d-flex align-items-center gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold">2</span><span class="small">Urgency, issue type, and confidence are scored</span></div>
+            <div class="d-flex align-items-center gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold">3</span><span class="small">Best-fit volunteer is matched and assigned</span></div>
+            <div class="d-flex align-items-center gap-2"><span class="badge bg-primary text-dark fw-bold">4</span><span class="small">If Gemini fails, local fallback ensures continuity</span></div>
           </div>
-
-          <form class="intake-form" id="report-form">
-            <label>
-              <span>Free-text incident report</span>
-              <textarea id="incident-field" name="incident" rows="6" maxlength="${INCIDENT_CHAR_LIMIT}" placeholder="Example: Families in South District need clean water immediately. Two hand pumps are broken and volunteers are required for distribution."></textarea>
-              <small id="incident-char-count">0/${INCIDENT_CHAR_LIMIT}</small>
-            </label>
-
-            <div class="form-grid">
-              <label>
-                <span>Location hint</span>
-                <input name="location" type="text" placeholder="South District" />
-              </label>
-              <label>
-                <span>Expected support</span>
-                <input name="support" type="text" placeholder="Water, food, medical, logistics" />
-              </label>
-            </div>
-
-            <label>
-              <span>Source tag</span>
-              <input name="source" type="text" placeholder="Field note, survey, hotline, spreadsheet" />
-            </label>
-
-            <label>
-              <span>Batch CSV import</span>
-              <input id="csv-upload" type="file" accept=".csv,text/csv" />
-              <small>Columns supported: incident, location, support, source.</small>
-            </label>
-
-            <div class="form-actions">
-              <button type="submit" id="analyze-button" class="${state.analysisStatus.kind === 'loading' ? 'btn-pulse' : ''}">${state.analysisStatus.kind === 'loading' ? 'Analyzing...' : 'Analyze report'}</button>
-              <small id="backend-status-note">${state.backend.geminiConfigured ? 'Gemini analysis is configured. The app will fall back locally if the backend is unavailable.' : 'The app will fall back to the local analyzer if Gemini is not available.'}</small>
-            </div>
-          </form>
-
-          ${state.analysisStatus.message ? `<div class="status-banner ${state.analysisStatus.kind} banner-enter" role="status" aria-live="polite">${sanitize(state.analysisStatus.message)}</div>` : ''}
-        </article>
-
-        <aside class="panel">
-          <span class="eyebrow">Latest result</span>
-          <article class="result-card">
-            <strong>${sanitize(latest.title)}</strong>
-            <p>${sanitize(latest.reason)}</p>
-            <div class="result-grid">
-              <div><strong>Issue type</strong><p>${sanitize(latest.issueType)}</p></div>
-              <div><strong>Urgency</strong><p>${sanitize(latest.urgency)}</p></div>
-              <div><strong>Confidence</strong><p>${latest.confidence}%</p></div>
-              <div><strong>Volunteer</strong><p>${sanitize((volunteers.find((item) => item.id === latest.assignedVolunteerId) || latest.match || { name: 'Not assigned' }).name)}</p></div>
-            </div>
-          </article>
-
-          <div class="feature-card">
-            <span class="eyebrow">Submission copy</span>
-            <h2>What judges should see</h2>
-            <p>Free text intake, structured extraction, priority scoring, duplicate detection, volunteer reasoning, and an audit trail for trust.</p>
-          </div>
-        </aside>
+          <hr class="border-secondary opacity-25">
+          <small class="text-secondary">${state.backend.geminiConfigured ? '<i class="bi bi-check-circle text-success me-1"></i>Gemini configured. Fallback available if needed.' : '<i class="bi bi-info-circle me-1"></i>Local fallback mode. Configure GEMINI_API_KEY for AI extraction.'}</small>
+        </div>
       </div>
-    </section>
-  `
+    </div>
+  </div>`
 }
+
+// ── Render: Volunteers ──
 
 function renderVolunteersPage() {
   const selected = getSelectedReport()
-  const volunteerCards = volunteers.map((volunteer) => {
-    const fit = buildVolunteerFit(selected, volunteer)
-    const isAssigned = selected.assignedVolunteerId === volunteer.id
-
-    return `
-      <article class="volunteer-card ${isAssigned ? 'active' : ''}">
-        <div class="volunteer-head">
-          <strong>${sanitize(volunteer.name)}</strong>
-          <span>${fit.score}% fit</span>
-        </div>
-        <p>${sanitize(volunteer.skills.join(' · '))}</p>
-        <small>${sanitize(volunteer.location)} · Available ${sanitize(volunteer.availability)}</small>
-        <div class="case-actions">
-          <button type="button" data-assign-volunteer="${sanitize(selected.id)}" data-volunteer-id="${sanitize(volunteer.id)}">Assign to selected case</button>
-        </div>
-      </article>
-    `
-  }).join('')
-
-  const fitCards = volunteers.find((item) => item.id === (selected.assignedVolunteerId || selected.match?.id)) || volunteers[0]
-
   return `
-    <section class="page">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Volunteer coordination</span>
-          <h1>Match the right person to the right case</h1>
-          <p>The roster shows skill overlap, location fit, and timing. Each assignment action updates the selected case.</p>
-        </div>
-      </div>
-
-      <div class="volunteer-layout">
-        <article class="panel">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">Roster</span>
-              <h2>Available volunteers</h2>
+  <div class="container-fluid py-4 fade-in">
+    <h4 class="ct-section-title">Volunteer Coordination</h4>
+    <p class="ct-section-desc">Match the right person to the right case based on skills, location, and availability.</p>
+    <div class="row g-3">
+      ${volunteers.map(v => {
+        const fit = buildVolunteerFit(selected, v)
+        const isAssigned = selected.assignedVolunteerId === v.id
+        return `
+        <div class="col-md-6 col-lg-3">
+          <div class="ct-card ${isAssigned ? 'ct-card-active' : ''} h-100">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <strong>${sanitize(v.name)}</strong>
+              <span class="badge bg-primary text-dark">${fit.score}%</span>
             </div>
+            <p class="small text-secondary mb-2">${sanitize(v.skills.join(' · '))}</p>
+            <small class="text-secondary d-block mb-2"><i class="bi bi-geo-alt me-1"></i>${sanitize(v.location)} · ${sanitize(v.availability)}</small>
+            <button class="btn btn-outline-light btn-sm w-100" data-assign-volunteer="${sanitize(selected.id)}" data-volunteer-id="${sanitize(v.id)}">${isAssigned ? '<i class="bi bi-check-circle me-1"></i>Assigned' : 'Assign to case'}</button>
           </div>
-          <div class="volunteer-grid">${volunteerCards}</div>
-        </article>
-
-        <aside class="panel detail-panel">
-          <div class="panel-head">
-            <span class="eyebrow">Selected case</span>
-            <h2>${sanitize(selected.title)}</h2>
-          </div>
-          <article class="detail-card">
-            <p>${sanitize(selected.summary)}</p>
-            <div class="detail-grid">
-              <div><span>Current volunteer</span><strong>${sanitize((volunteers.find((item) => item.id === selected.assignedVolunteerId) || selected.match || { name: 'Not assigned' }).name)}</strong></div>
-              <div><span>Score</span><strong>${selected.score}%</strong></div>
-              <div><span>Urgency</span><strong>${sanitize(selected.urgency)}</strong></div>
-              <div><span>Confidence</span><strong>${selected.confidence}%</strong></div>
-            </div>
-            <div class="mini-grid">${fitCards.skills.map((skill) => `<div class="mini-card"><strong>${sanitize(skill)}</strong><small>Relevant to the selected case.</small></div>`).join('')}</div>
-          </article>
-        </aside>
-      </div>
-    </section>
-  `
+        </div>`
+      }).join('')}
+    </div>
+    <div class="ct-card mt-4">
+      <div class="ct-eyebrow">Selected Case</div>
+      <h6 class="fw-700">${sanitize(selected.title)}</h6>
+      <p class="text-secondary small">${sanitize(selected.summary)}</p>
+    </div>
+  </div>`
 }
 
-function buildBarChart(items, maxVal) {
-  if (!items.length) return '<div class="empty-state">No data yet.</div>'
-  const peak = maxVal || Math.max(...items.map(([, v]) => v), 1)
-  return items.map(([label, count]) => {
-    const pct = Math.max(4, Math.round((count / peak) * 100))
-    return `<div class="bar-row"><span class="bar-label">${sanitize(label)}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-value">${count}</span></div>`
-  }).join('')
-}
+// ── Render: Insights ──
 
 function renderInsightsPage() {
-  const analytics = buildAnalytics(state.reports)
-  const locationBars = buildBarChart(analytics.locationHotspots)
-  const issueBars = buildBarChart(analytics.issueHotspots)
-  const urgencyBreakdown = [
-    ['Critical', state.reports.filter(r => r.urgency === 'Critical').length],
-    ['High', state.reports.filter(r => r.urgency === 'High').length],
-    ['Medium', state.reports.filter(r => r.urgency === 'Medium').length],
-  ].filter(([, c]) => c > 0)
-  const urgencyBars = buildBarChart(urgencyBreakdown)
+  const byLoc = state.reports.reduce((a, r) => { a[r.location] = (a[r.location] || 0) + 1; return a }, {})
+  const byIssue = state.reports.reduce((a, r) => { a[r.issueType] = (a[r.issueType] || 0) + 1; return a }, {})
+  const locItems = Object.entries(byLoc).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const issueItems = Object.entries(byIssue).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const avgConf = Math.round(state.reports.reduce((s, r) => s + r.confidence, 0) / Math.max(state.reports.length, 1))
+  const peak = Math.max(...locItems.map(([, c]) => c), 1)
+  const issuePeak = Math.max(...issueItems.map(([, c]) => c), 1)
+
+  function bars(items, p) { return items.map(([label, count]) => `<div class="d-flex align-items-center gap-2 mb-2"><span class="text-secondary small text-end" style="width:100px;flex-shrink:0">${sanitize(label)}</span><div class="ct-bar-track flex-grow-1"><div class="ct-bar-fill" style="width:${Math.max(5, Math.round(count/p*100))}%"></div></div><span class="small fw-600" style="width:30px">${count}</span></div>`).join('') }
 
   return `
-    <section class="page">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Decision intelligence</span>
-          <h1>Where the need is concentrating</h1>
-          <p>Visual summaries of hot areas, issue clusters, urgency distribution, and extraction quality.</p>
-        </div>
-      </div>
-
-      <div class="stats-grid">
-        <article class="stat-card"><span>Top hotspot</span><strong>${sanitize(analytics.topLocation)}</strong><small>${analytics.topLocationCount} active reports.</small></article>
-        <article class="stat-card"><span>Dominant issue</span><strong>${sanitize(analytics.topIssue)}</strong><small>${analytics.topIssueCount} related cases.</small></article>
-        <article class="stat-card"><span>Average confidence</span><strong>${analytics.averageConfidence}%</strong><small>Structured extraction quality.</small></article>
-        <article class="stat-card"><span>Urgent share</span><strong>${analytics.urgentShare}%</strong><small>Visible high-pressure cases.</small></article>
-      </div>
-
-      <div class="feature-grid">
-        <article class="feature-card">
-          <span class="eyebrow">Location distribution</span>
-          <h2>Where need is strongest</h2>
-          <div class="chart-container">${locationBars}</div>
-        </article>
-        <article class="feature-card">
-          <span class="eyebrow">Issue distribution</span>
-          <h2>What keeps repeating</h2>
-          <div class="chart-container">${issueBars}</div>
-        </article>
-      </div>
-
-      <div class="feature-grid">
-        <article class="feature-card">
-          <span class="eyebrow">Urgency breakdown</span>
-          <h2>Severity distribution</h2>
-          <div class="chart-container">${urgencyBars}</div>
-        </article>
-        <article class="feature-card">
-          <span class="eyebrow">Extraction quality</span>
-          <h2>Confidence overview</h2>
-          <div class="chart-container">
-            <div class="confidence-gauge">
-              <div class="gauge-ring" style="--gauge-pct:${analytics.averageConfidence}">
-                <span class="gauge-value">${analytics.averageConfidence}%</span>
-              </div>
-              <small>Average extraction confidence across ${state.reports.length} reports.</small>
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
-  `
+  <div class="container-fluid py-4 fade-in">
+    <h4 class="ct-section-title">Insights</h4>
+    <p class="ct-section-desc">Visual summary of need concentration, issue clusters, and extraction quality.</p>
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3"><div class="ct-card ct-stat"><div class="value">${locItems[0]?.[0]||'-'}</div><div class="label">Top Hotspot</div></div></div>
+      <div class="col-6 col-md-3"><div class="ct-card ct-stat"><div class="value">${issueItems[0]?.[0]||'-'}</div><div class="label">Top Issue</div></div></div>
+      <div class="col-6 col-md-3"><div class="ct-card ct-stat"><div class="value">${avgConf}%</div><div class="label">Avg Confidence</div></div></div>
+      <div class="col-6 col-md-3"><div class="ct-card ct-stat"><div class="value">${Math.round(state.reports.filter(r=>r.urgency==='Critical'||r.urgency==='High').length/Math.max(state.reports.length,1)*100)}%</div><div class="label">Urgent Share</div></div></div>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-6"><div class="ct-card"><div class="ct-eyebrow">By Location</div>${bars(locItems, peak)}</div></div>
+      <div class="col-md-6"><div class="ct-card"><div class="ct-eyebrow">By Issue Type</div>${bars(issueItems, issuePeak)}</div></div>
+    </div>
+  </div>`
 }
+
+// ── Render: Audit ──
 
 function renderAuditPage() {
-  const trail = state.auditTrail.map((entry) => `
-    <article class="audit-card">
-      <div class="audit-head">
-        <div>
-          <span class="eyebrow">${sanitize(entry.type.replace(/-/g, ' '))}</span>
-          <strong>${sanitize(entry.reportId || 'General')}</strong>
-        </div>
-        <small>${sanitize(entry.id)} · ${sanitize(entry.timestamp)}</small>
-      </div>
-      <p>${sanitize(entry.message)}</p>
-      ${entry.metadata?.requestId ? `<small>Request: ${sanitize(entry.metadata.requestId)}${entry.metadata?.clientRequestId ? ` · Client: ${sanitize(entry.metadata.clientRequestId)}` : ''}</small>` : ''}
-    </article>
-  `).join('')
-
   return `
-    <section class="page">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Audit trail</span>
-          <h1>Every important action stays visible</h1>
-          <p>Analyze, override, assign, and duplicate-flag events are logged so judges can see the workflow is trustworthy.</p>
+  <div class="container-fluid py-4 fade-in">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <div><h4 class="ct-section-title">Audit Trail</h4><p class="ct-section-desc mb-0">Every action stays visible for trust and accountability.</p></div>
+      <button class="btn btn-outline-light btn-sm" id="export-audit-btn"><i class="bi bi-download me-1"></i>Export JSON</button>
+    </div>
+    <div class="ct-card p-0">
+      ${state.auditTrail.length ? state.auditTrail.map(e => `
+        <div class="ct-case-item">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <div><span class="badge bg-secondary me-2">${sanitize(e.type)}</span><strong class="small">${sanitize(e.reportId || '')}</strong></div>
+            <small class="text-secondary">${sanitize(e.id)} · ${new Date(e.timestamp).toLocaleString()}</small>
+          </div>
+          <p class="small text-secondary mb-0">${sanitize(e.message)}</p>
+          ${e.metadata?.requestId ? `<small class="text-secondary">Req: ${sanitize(e.metadata.requestId)}</small>` : ''}
         </div>
-        <button type="button" class="ghost-button" id="export-audit-btn" title="Download audit trail as JSON">Export JSON</button>
-      </div>
-
-      <div class="audit-list">
-        ${trail || '<div class="empty-state">No audit events yet.</div>'}
-      </div>
-    </section>
-  `
+      `).join('') : '<div class="p-4 text-center text-secondary">No audit events yet.</div>'}
+    </div>
+  </div>`
 }
 
-function handleResetDemo() {
-  try { window.localStorage.removeItem(STORAGE_KEY) } catch {}
-  state.reports = seedReports.map((report) => normalizeReport(report))
-  state.auditTrail = buildAuditSeed(state.reports)
-  state.selectedReportId = state.reports[0]?.id || null
-  state.nextReportNumber = 1045
-  state.nextAuditNumber = state.reports.length + 1
-  state.analysisStatus = { kind: 'success', message: 'Demo reset to initial state.' }
-  saveSnapshot()
-  render()
-}
-
-function handleExportAudit() {
-  const blob = new Blob([JSON.stringify(state.auditTrail, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = `communitytriage-audit-${new Date().toISOString().slice(0, 10)}.json`
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
+// ── Event Handlers ──
 
 function attachListeners() {
-  document.querySelectorAll('[data-route]').forEach((button) => button.addEventListener('click', () => go(button.getAttribute('data-route') || 'overview')))
-  document.querySelectorAll('[data-select-report]').forEach((button) => button.addEventListener('click', () => { state.selectedReportId = button.getAttribute('data-select-report'); go('cases') }))
-  document.querySelectorAll('[data-assign-suggested]').forEach((button) => button.addEventListener('click', () => {
-    const report = state.reports.find((item) => item.id === button.getAttribute('data-assign-suggested'))
-    if (report) {
-      const volunteer = volunteers.find((item) => item.id === (report.assignedVolunteerId || report.match?.id)) || findBestVolunteer(report).volunteer
-      assignVolunteer(report.id, volunteer.id, 'suggested')
-      go('cases')
-    }
-  }))
-  document.querySelectorAll('[data-assign-volunteer]').forEach((button) => button.addEventListener('click', () => assignVolunteer(button.getAttribute('data-assign-volunteer'), button.getAttribute('data-volunteer-id'), 'volunteer-page')))
-  document.querySelectorAll('[data-assign-selected]').forEach((button) => button.addEventListener('click', () => {
-    const reportId = button.getAttribute('data-assign-selected') || ''
-    const assignmentSelect = document.getElementById('assignment-select')
-    const volunteerId = assignmentSelect?.value || ''
-
-    if (!volunteerId) {
-      state.analysisStatus = { kind: 'error', message: 'Select a volunteer before assigning.' }
-      render()
-      return
-    }
-
-    assignVolunteer(reportId, volunteerId, 'manual-picker')
-  }))
-  document.querySelectorAll('[data-unassign-report]').forEach((button) => button.addEventListener('click', () => unassignVolunteer(button.getAttribute('data-unassign-report'))))
-  document.querySelectorAll('[data-demo-key]').forEach((button) => button.addEventListener('click', () => {
-    const preset = demoScenarios[button.getAttribute('data-demo-key')]
-    const form = document.getElementById('report-form')
-    if (!preset || !form) return
-    form.elements.incident.value = preset.incident
-    form.elements.location.value = preset.location
-    form.elements.support.value = preset.support
-    form.elements.source.value = preset.source
-  }))
-  document.getElementById('case-search')?.addEventListener('input', (event) => { state.filters.search = event.target.value; render() })
-  document.getElementById('urgency-filter')?.addEventListener('change', (event) => { state.filters.urgency = event.target.value; render() })
-  document.getElementById('location-filter')?.addEventListener('change', (event) => { state.filters.location = event.target.value; render() })
-  document.getElementById('sort-filter')?.addEventListener('change', (event) => { state.filters.sort = event.target.value; render() })
+  document.querySelectorAll('[data-route]').forEach(el => el.addEventListener('click', (e) => { e.preventDefault(); go(el.getAttribute('data-route')) }))
+  document.querySelectorAll('[data-select-report]').forEach(el => el.addEventListener('click', () => { state.selectedReportId = el.getAttribute('data-select-report'); render() }))
+  document.querySelectorAll('[data-assign-suggested]').forEach(el => el.addEventListener('click', () => { const r = state.reports.find(x => x.id === el.getAttribute('data-assign-suggested')); if (r) { const v = volunteers.find(x => x.id === (r.assignedVolunteerId || r.match?.id)) || findBestVolunteer(r).volunteer; assignVolunteer(r.id, v.id, 'suggested') } }))
+  document.querySelectorAll('[data-assign-volunteer]').forEach(el => el.addEventListener('click', () => assignVolunteer(el.getAttribute('data-assign-volunteer'), el.getAttribute('data-volunteer-id'), 'volunteer-page')))
+  document.querySelectorAll('[data-assign-selected]').forEach(el => el.addEventListener('click', () => { const sel = document.getElementById('assignment-select'); if (sel?.value) assignVolunteer(el.getAttribute('data-assign-selected'), sel.value, 'manual-picker') }))
+  document.querySelectorAll('[data-unassign-report]').forEach(el => el.addEventListener('click', () => unassignVolunteer(el.getAttribute('data-unassign-report'))))
+  document.querySelectorAll('[data-demo-key]').forEach(el => el.addEventListener('click', () => { const p = demoScenarios[el.getAttribute('data-demo-key')]; const f = document.getElementById('report-form'); if (p && f) { f.elements.incident.value = p.incident; f.elements.location.value = p.location; f.elements.support.value = p.support; f.elements.source.value = p.source } }))
+  document.getElementById('case-search')?.addEventListener('input', e => { state.filters.search = e.target.value; render() })
+  document.getElementById('urgency-filter')?.addEventListener('change', e => { state.filters.urgency = e.target.value; render() })
+  document.getElementById('location-filter')?.addEventListener('change', e => { state.filters.location = e.target.value; render() })
+  document.getElementById('sort-filter')?.addEventListener('change', e => { state.filters.sort = e.target.value; render() })
   document.getElementById('override-form')?.addEventListener('submit', handleOverrideSubmit)
   document.getElementById('report-form')?.addEventListener('submit', handleReportSubmit)
-  document.getElementById('incident-field')?.addEventListener('input', (event) => {
-    const value = String(event.target.value || '')
-    const counter = document.getElementById('incident-char-count')
-    if (!counter) return
-    counter.textContent = `${value.length}/${INCIDENT_CHAR_LIMIT}`
-    counter.classList.toggle('limit-near', value.length >= INCIDENT_CHAR_LIMIT - 200)
-  })
+  document.getElementById('incident-field')?.addEventListener('input', e => { const c = document.getElementById('incident-char-count'); if (c) c.textContent = `${e.target.value.length}/${INCIDENT_CHAR_LIMIT}` })
   document.getElementById('csv-upload')?.addEventListener('change', handleCsvImport)
   document.getElementById('reset-demo-btn')?.addEventListener('click', handleResetDemo)
   document.getElementById('export-audit-btn')?.addEventListener('click', handleExportAudit)
 }
 
 function assignVolunteer(reportId, volunteerId, source) {
-  const report = state.reports.find((item) => item.id === reportId)
-  const volunteer = volunteers.find((item) => item.id === volunteerId)
-  if (!report || !volunteer) {
-    state.analysisStatus = { kind: 'error', message: 'Pick a valid volunteer before assigning.' }
-    render()
-    return
-  }
-
+  const report = state.reports.find(r => r.id === reportId)
+  const volunteer = volunteers.find(v => v.id === volunteerId)
+  if (!report || !volunteer) return
   report.assignedVolunteerId = volunteer.id
   report.status = `Assigned to ${volunteer.name}`
   report.match = { ...volunteer, ...buildVolunteerFit(report, volunteer) }
-  addAudit('assign', report.id, `Assigned ${volunteer.name} to ${report.id}.`, { volunteerId: volunteer.id, volunteerName: volunteer.name, source })
+  addAudit('assign', report.id, `Assigned ${volunteer.name} to ${report.id}.`, { volunteerId: volunteer.id, source })
   state.analysisStatus = { kind: 'success', message: `${volunteer.name} assigned to ${report.id}.` }
   state.selectedReportId = report.id
-  saveSnapshot()
-  render()
+  saveSnapshot(); render()
 }
 
 function unassignVolunteer(reportId) {
-  const report = state.reports.find((item) => item.id === reportId)
+  const report = state.reports.find(r => r.id === reportId)
   if (!report) return
   report.assignedVolunteerId = ''
   report.status = 'Needs manual assignment'
-  addAudit('unassign', report.id, `Removed volunteer assignment from ${report.id}.`)
-  state.analysisStatus = { kind: 'fallback', message: `Volunteer removed from ${report.id}.` }
-  saveSnapshot()
-  render()
+  addAudit('unassign', report.id, `Removed assignment from ${report.id}.`)
+  state.analysisStatus = { kind: 'idle', message: `Volunteer removed from ${report.id}.` }
+  saveSnapshot(); render()
 }
 
-function handleOverrideSubmit(event) {
-  event.preventDefault()
-  const reportId = event.currentTarget.getAttribute('data-report-id')
-  const report = state.reports.find((item) => item.id === reportId)
+function handleOverrideSubmit(e) {
+  e.preventDefault()
+  const reportId = e.currentTarget.getAttribute('data-report-id')
+  const report = state.reports.find(r => r.id === reportId)
   if (!report) return
-
-  const formData = new FormData(event.currentTarget)
-  const urgency = String(formData.get('overrideUrgency') || report.urgency)
-  const score = clampNumber(formData.get('overrideScore'), 0, 99, report.score)
-
+  const fd = new FormData(e.currentTarget)
+  const urgency = String(fd.get('overrideUrgency') || report.urgency)
+  const score = clampNumber(fd.get('overrideScore'), 0, 99, report.score)
   report.manualOverride = { previousUrgency: report.urgency, previousScore: report.score, urgency, score, timestamp: new Date().toISOString() }
-  report.urgency = urgency
-  report.score = score
-  report.status = `Manually set to ${urgency}`
-  report.reviewFlags = report.reviewFlags.filter((flag) => flag.code !== 'low-confidence')
-  addAudit('override', report.id, `Changed ${report.id} from ${report.manualOverride.previousUrgency}/${report.manualOverride.previousScore}% to ${urgency}/${score}%.`)
-  state.analysisStatus = { kind: 'success', message: `Manual override applied to ${report.id}.` }
-  saveSnapshot()
-  render()
+  report.urgency = urgency; report.score = score; report.status = `Manually set to ${urgency}`
+  report.reviewFlags = report.reviewFlags.filter(f => f.code !== 'low-confidence')
+  addAudit('override', report.id, `Changed ${report.id} to ${urgency}/${score}%.`)
+  state.analysisStatus = { kind: 'success', message: `Override applied to ${report.id}.` }
+  saveSnapshot(); render()
 }
 
-function clampNumber(value, min, max, fallback) {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return fallback
-  return Math.min(max, Math.max(min, Math.round(numeric)))
-}
+async function handleReportSubmit(e) {
+  e.preventDefault()
+  const fd = new FormData(e.currentTarget)
+  const incident = String(fd.get('incident') || '').trim()
+  const location = String(fd.get('location') || '').trim()
+  const support = String(fd.get('support') || '').trim()
+  const source = String(fd.get('source') || '').trim()
+  if (!incident) { state.analysisStatus = { kind: 'error', message: 'Enter a report before analyzing.' }; render(); return }
+  if (incident.length > INCIDENT_CHAR_LIMIT) { state.analysisStatus = { kind: 'error', message: `Report too long. Keep under ${INCIDENT_CHAR_LIMIT} chars.` }; render(); return }
 
-async function handleReportSubmit(event) {
-  event.preventDefault()
-  const formData = new FormData(event.currentTarget)
-  const incident = String(formData.get('incident') || '').trim()
-  const location = String(formData.get('location') || '').trim()
-  const support = String(formData.get('support') || '').trim()
-  const source = String(formData.get('source') || '').trim()
-
-  if (!incident) {
-    state.analysisStatus = { kind: 'error', message: 'Enter a report before analyzing.' }
-    render()
-    return
-  }
-
-  if (incident.length > INCIDENT_CHAR_LIMIT) {
-    state.analysisStatus = { kind: 'error', message: `Report text is too long. Keep it under ${INCIDENT_CHAR_LIMIT} characters.` }
-    render()
-    return
-  }
-
-  if (location.length > 500 || support.length > 500 || source.length > 500) {
-    state.analysisStatus = { kind: 'error', message: 'Location, support, and source fields must be under 500 characters.' }
-    render()
-    return
-  }
-
-  state.analysisStatus = { kind: 'loading', message: 'Analyzing report...' }
-  render()
+  state.analysisStatus = { kind: 'loading', message: 'Analyzing report...' }; render()
 
   const fallbackReport = buildLocalReport({ incident, location, support, source })
   const clientRequestId = createClientRequestId()
   const controller = new AbortController()
-  const timeoutHandle = window.setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS)
 
   try {
-    const response = await fetch('/api/analyze-report', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-client-request-id': clientRequestId,
-      },
-      body: JSON.stringify({ incident, locationHint: location, supportHint: support, source }),
-      signal: controller.signal,
-    })
-
-    const payload = await response.json().catch(() => ({}))
-    const requestId = response.headers.get('x-request-id') || payload.requestId || ''
-
-    if (!response.ok) {
-      const backendError = new Error(payload.error || 'Backend analysis unavailable.')
-      backendError.code = payload.code || 'BACKEND_ANALYSIS_FAILED'
-      backendError.requestId = requestId
-      throw backendError
-    }
-
-    if (!payload.analysis || typeof payload.analysis !== 'object') {
-      const malformedError = new Error('Backend returned malformed analysis data.')
-      malformedError.code = 'BACKEND_MALFORMED_ANALYSIS'
-      malformedError.requestId = requestId
-      throw malformedError
-    }
-
-    const report = buildBackendReport({ incident, location, support, source, analysis: payload.analysis || {}, model: payload.model })
-    insertNewReport(report, 'Gemini analysis completed.', {
-      requestId,
-      clientRequestId,
-      provider: payload.provider || 'Gemini',
-      attempts: payload.attempts,
-    })
-  } catch (error) {
-    const fallbackReason = error?.name === 'AbortError'
-      ? 'Request timed out.'
-      : error?.message || 'Backend unavailable.'
-
-    insertNewReport(fallbackReport, `${fallbackReason} Local fallback triage used.`, {
-      requestId: error?.requestId || '',
-      clientRequestId,
-      provider: 'Local fallback',
-      fallbackReason: error?.code || 'FALLBACK_USED',
-    })
-  } finally {
-    clearTimeout(timeoutHandle)
-  }
-
-  event.currentTarget.reset()
-}
-
-function parseCsvText(csvText) {
-  const text = String(csvText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-  const rows = []
-  let currentValue = ''
-  let currentRow = []
-  let insideQuotes = false
-
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index]
-    const nextCharacter = text[index + 1]
-
-    if (character === '"') {
-      if (insideQuotes && nextCharacter === '"') {
-        currentValue += '"'
-        index += 1
-      } else {
-        insideQuotes = !insideQuotes
-      }
-      continue
-    }
-
-    if (character === ',' && !insideQuotes) {
-      currentRow.push(currentValue.trim())
-      currentValue = ''
-      continue
-    }
-
-    if (character === '\n' && !insideQuotes) {
-      currentRow.push(currentValue.trim())
-      if (currentRow.some((value) => value !== '')) {
-        rows.push(currentRow)
-      }
-      currentRow = []
-      currentValue = ''
-      continue
-    }
-
-    currentValue += character
-  }
-
-  currentRow.push(currentValue.trim())
-  if (currentRow.some((value) => value !== '')) {
-    rows.push(currentRow)
-  }
-
-  if (rows.length < 2) {
-    return []
-  }
-
-  const headers = rows[0].map((header) => header.toLowerCase())
-
-  return rows.slice(1).map((values) => {
-    return headers.reduce((row, header, index) => {
-      row[header] = values[index] || ''
-      return row
-    }, {})
-  })
-}
-
-async function handleCsvImport(event) {
-  const file = event.target.files?.[0]
-
-  if (!file) {
-    return
-  }
-
-  try {
-    const csvText = await file.text()
-    const rows = parseCsvText(csvText)
-
-    if (!rows.length) {
-      state.analysisStatus = {
-        kind: 'error',
-        message: 'CSV import needs a header row and at least one data row.',
-      }
-      render()
-      return
-    }
-
-    let importedCount = 0
-    let duplicateCount = 0
-
-    const reports = rows
-      .map((row) => {
-        const incident = row.incident || row.report || row.text || row.description || ''
-
-        if (!incident.trim()) {
-          return null
-        }
-
-        const report = buildLocalReport({
-          incident,
-          location: row.location || row.area || row.zone || '',
-          support: row.support || row.need || row.resources || '',
-          source: row.source || row.channel || 'CSV import',
-        })
-
-        importedCount += 1
-
-        if (report.duplicateOf) {
-          duplicateCount += 1
-          addAudit('duplicate-flag', report.id, `CSV row for ${report.id} was flagged against ${report.duplicateOf}.`, {
-            matchedReportId: report.duplicateOf,
-            source: 'csv-import',
-          })
-        }
-
-        addAudit('analyze', report.id, `CSV row normalized and scored for ${report.id}.`, {
-          source: 'csv-import',
-          confidence: report.confidence,
-        })
-
-        return report
-      })
-      .filter(Boolean)
-
-    if (!reports.length) {
-      state.analysisStatus = {
-        kind: 'error',
-        message: 'No usable report rows were found in the CSV file.',
-      }
-      render()
-      return
-    }
-
-    state.reports = [...reports.reverse(), ...state.reports]
-    state.selectedReportId = reports[reports.length - 1].id
-    state.analysisStatus = {
-      kind: 'success',
-      message: `Imported ${importedCount} CSV report${importedCount === 1 ? '' : 's'}${duplicateCount ? `, with ${duplicateCount} duplicate flag${duplicateCount === 1 ? '' : 's'}` : ''}.`,
-    }
-
-    saveSnapshot()
-    go('cases')
-  } catch (error) {
-    state.analysisStatus = {
-      kind: 'error',
-      message: `CSV import failed: ${error.message}`,
-    }
-    render()
-  } finally {
-    event.target.value = ''
-  }
+    const res = await fetch('/api/analyze-report', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-client-request-id': clientRequestId }, body: JSON.stringify({ incident, locationHint: location, supportHint: support, source }), signal: controller.signal })
+    const payload = await res.json().catch(() => ({}))
+    const requestId = res.headers.get('x-request-id') || payload.requestId || ''
+    if (!res.ok) throw Object.assign(new Error(payload.error || 'Backend unavailable'), { code: payload.code, requestId })
+    if (!payload.analysis) throw Object.assign(new Error('Malformed response'), { code: 'MALFORMED', requestId })
+    const report = buildBackendReport({ incident, location, support, source, analysis: payload.analysis, model: payload.model })
+    insertNewReport(report, 'Gemini analysis completed.', { requestId, clientRequestId, provider: payload.provider || 'Gemini', attempts: payload.attempts })
+  } catch (err) {
+    insertNewReport(fallbackReport, `${err?.name === 'AbortError' ? 'Timed out.' : err?.message || 'Backend unavailable.'} Local fallback used.`, { clientRequestId, provider: 'Local fallback', fallbackReason: err?.code || 'FALLBACK' })
+  } finally { clearTimeout(timeout) }
+  e.currentTarget.reset()
 }
 
 function buildLocalReport({ incident, location, support, source }) {
   const template = getIssueTemplate('', incident)
   const confidence = Math.min(99, 64 + Math.min(12, tokenize(incident).length % 10) + (template.key === 'water' ? 12 : template.key === 'flood' ? 9 : template.key === 'medical' ? 7 : 4))
   const urgency = template.urgency
-  const score = triageCore?.calculateHybridPriorityScore
-    ? triageCore.calculateHybridPriorityScore({ confidence, urgency, fallbackScore: 70 })
-    : Math.min(99, Math.round(confidence * 0.4 + (urgency === 'Critical' ? 96 : urgency === 'High' ? 84 : 68) * 0.35 + 18))
-  const report = normalizeReport({
-    id: `CT-${state.nextReportNumber++}`,
-    rawText: incident,
-    title: template.title,
-    location: location || 'Community Zone',
-    issueType: template.issueType,
-    urgency,
-    score,
-    summary: incident,
-    need: support || template.need,
-    status: urgency === 'Critical' ? 'Needs immediate attention' : 'Queue for review',
-    confidence,
-    reason: `Local triage found ${template.issueType.toLowerCase()} signals and ${confidence}% extraction confidence.`,
-    source: source || 'Submitted through intake form',
-    affectedGroup: 'Community members',
-    assignedVolunteerId: '',
-    duplicateOf: '',
-    manualOverride: null,
-  })
-
-  const duplicate = getDuplicateMatch(report)
-  if (duplicate) {
-    report.duplicateOf = duplicate.report.id
-    report.status = 'Flagged for duplicate review'
-    report.reason = `${report.reason} A similar case (${duplicate.report.id}) already exists, so it was flagged for review.`
-  }
-
+  const score = triageCore?.calculateHybridPriorityScore ? triageCore.calculateHybridPriorityScore({ confidence, urgency, fallbackScore: 70 }) : Math.min(99, Math.round(confidence * 0.4 + (urgency === 'Critical' ? 96 : urgency === 'High' ? 84 : 68) * 0.35 + 18))
+  const report = normalizeReport({ id: `CT-${state.nextReportNumber++}`, rawText: incident, title: template.title, location: location || 'Community Zone', issueType: template.issueType, urgency, score, summary: incident, need: support || template.need, status: urgency === 'Critical' ? 'Needs immediate attention' : 'Queue for review', confidence, reason: `Local triage: ${template.issueType.toLowerCase()} signals, ${confidence}% confidence.`, source: source || 'Submitted through intake form', affectedGroup: 'Community members', assignedVolunteerId: '', duplicateOf: '', manualOverride: null })
+  const dup = getDuplicateMatch(report)
+  if (dup) { report.duplicateOf = dup.report.id; report.status = 'Flagged for duplicate review' }
   return report
 }
 
@@ -1279,177 +603,121 @@ function buildBackendReport({ incident, location, support, source, analysis, mod
   const template = getIssueTemplate(analysis.issueType, incident)
   const urgency = normalizeUrgency(analysis.urgency || template.urgency)
   const confidence = clampNumber(analysis.confidence, 0, 100, 78)
-  const score = triageCore?.calculateHybridPriorityScore
-    ? triageCore.calculateHybridPriorityScore({ confidence, urgency, fallbackScore: 72 })
-    : Math.min(99, Math.round(confidence * 0.4 + (urgency === 'Critical' ? 96 : urgency === 'High' ? 84 : 68) * 0.35 + 18))
-
-  const report = normalizeReport({
-    id: `CT-${state.nextReportNumber++}`,
-    rawText: incident,
-    title: template.title,
-    location: analysis.location || location || 'Community Zone',
-    issueType: String(analysis.issueType || template.issueType).trim(),
-    urgency,
-    score,
-    summary: analysis.summary || incident,
-    need: Array.isArray(analysis.requiredResources) ? analysis.requiredResources.join(', ') : String(analysis.requiredResources || support || template.need),
-    status: urgency === 'Critical' ? 'Needs immediate attention' : 'Queued for review',
-    confidence,
-    reason: String(analysis.justification || 'Gemini returned a structured triage response.').trim(),
-    source: source || 'Submitted through intake form',
-    affectedGroup: String(analysis.affectedGroup || 'Community members').trim(),
-    assignedVolunteerId: '',
-    duplicateOf: '',
-    manualOverride: null,
-    provider: model ? `Gemini (${model})` : 'Gemini',
-  })
-
-  const duplicate = getDuplicateMatch(report)
-  if (duplicate) {
-    report.duplicateOf = duplicate.report.id
-    report.status = 'Flagged for duplicate review'
-    report.reason = `${report.reason} A similar case (${duplicate.report.id}) already exists, so it was flagged for manual review.`
-  }
-
+  const score = triageCore?.calculateHybridPriorityScore ? triageCore.calculateHybridPriorityScore({ confidence, urgency, fallbackScore: 72 }) : Math.min(99, Math.round(confidence * 0.4 + (urgency === 'Critical' ? 96 : urgency === 'High' ? 84 : 68) * 0.35 + 18))
+  const report = normalizeReport({ id: `CT-${state.nextReportNumber++}`, rawText: incident, title: template.title, location: analysis.location || location || 'Community Zone', issueType: String(analysis.issueType || template.issueType).trim(), urgency, score, summary: analysis.summary || incident, need: Array.isArray(analysis.requiredResources) ? analysis.requiredResources.join(', ') : String(analysis.requiredResources || support || template.need), status: urgency === 'Critical' ? 'Needs immediate attention' : 'Queued for review', confidence, reason: String(analysis.justification || 'Gemini structured triage response.').trim(), source: source || 'Submitted through intake form', affectedGroup: String(analysis.affectedGroup || 'Community members').trim(), assignedVolunteerId: '', duplicateOf: '', manualOverride: null, provider: model ? `Gemini (${model})` : 'Gemini' })
+  const dup = getDuplicateMatch(report)
+  if (dup) { report.duplicateOf = dup.report.id; report.status = 'Flagged for duplicate review' }
   return report
 }
 
 function insertNewReport(report, message, metadata = {}) {
   state.reports = [report, ...state.reports]
   state.selectedReportId = report.id
-  const volunteer = volunteers.find((item) => item.id === report.match.id) || volunteers[0]
-  report.match = { ...volunteer, ...buildVolunteerFit(report, volunteer) }
-  addAudit('analyze', report.id, `${report.provider || 'Triager'} analyzed ${report.id} with ${report.confidence}% confidence.`, {
-    provider: report.provider || 'Triager',
-    ...metadata,
-  })
+  const vol = volunteers.find(v => v.id === report.match?.id) || volunteers[0]
+  report.match = { ...vol, ...buildVolunteerFit(report, vol) }
+  addAudit('analyze', report.id, `Analyzed ${report.id} with ${report.confidence}% confidence.`, { provider: report.provider || 'Triager', ...metadata })
   state.analysisStatus = { kind: report.provider?.startsWith('Gemini') ? 'success' : 'fallback', message }
-  saveSnapshot()
-  go('cases')
+  saveSnapshot(); go('cases')
 }
 
-function updateBackendStatusHint() {
-  const statusNode = document.getElementById('backend-status-note')
-  if (!statusNode) {
-    return
+function parseCsvText(csvText) {
+  const text = String(csvText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const rows = []; let val = '', row = [], inQ = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '"') { if (inQ && text[i+1] === '"') { val += '"'; i++ } else { inQ = !inQ } continue }
+    if (c === ',' && !inQ) { row.push(val.trim()); val = ''; continue }
+    if (c === '\n' && !inQ) { row.push(val.trim()); if (row.some(v => v)) rows.push(row); row = []; val = ''; continue }
+    val += c
   }
-
-  statusNode.textContent = state.backend.geminiConfigured
-    ? 'Gemini analysis is configured. The app will fall back locally if the backend is unavailable.'
-    : 'The app will fall back to the local analyzer if Gemini is not available.'
+  row.push(val.trim()); if (row.some(v => v)) rows.push(row)
+  if (rows.length < 2) return []
+  const headers = rows[0].map(h => h.toLowerCase())
+  return rows.slice(1).map(values => headers.reduce((obj, h, i) => { obj[h] = values[i] || ''; return obj }, {}))
 }
 
-async function syncBackendStatus() {
-  const previousState = `${state.backend.available}-${state.backend.geminiConfigured}-${state.backend.model || ''}`
-
+async function handleCsvImport(e) {
+  const file = e.target.files?.[0]; if (!file) return
   try {
-    const response = await fetch('/api/health')
-    if (!response.ok) throw new Error('Backend unavailable')
-    const payload = await response.json()
-    state.backend.available = true
-    state.backend.geminiConfigured = Boolean(payload.geminiConfigured)
-    state.backend.model = payload.model || null
-  } catch {
-    state.backend.available = false
-    state.backend.geminiConfigured = false
-    state.backend.model = null
-  }
-
-  saveSnapshot()
-
-  const currentState = `${state.backend.available}-${state.backend.geminiConfigured}-${state.backend.model || ''}`
-  if (previousState !== currentState) {
-    updateBackendStatusHint()
-  }
+    const rows = parseCsvText(await file.text())
+    if (!rows.length) { state.analysisStatus = { kind: 'error', message: 'CSV needs header + data rows.' }; render(); return }
+    let imported = 0
+    rows.forEach(row => {
+      const incident = row.incident || row.report || row.text || row.description || ''
+      if (!incident.trim()) return
+      const report = buildLocalReport({ incident, location: row.location || row.area || '', support: row.support || row.need || '', source: row.source || 'CSV import' })
+      addAudit('analyze', report.id, `CSV import: ${report.id}`, { source: 'csv-import' })
+      imported++
+    })
+    state.analysisStatus = { kind: 'success', message: `Imported ${imported} report${imported === 1 ? '' : 's'}.` }
+    saveSnapshot(); go('cases')
+  } catch (err) { state.analysisStatus = { kind: 'error', message: `CSV failed: ${err.message}` }; render() }
+  finally { e.target.value = '' }
 }
 
-function renderPageContent(page) {
-  switch (page) {
-    case 'cases': return renderCasesPage()
-    case 'intake': return renderIntakePage()
-    case 'volunteers': return renderVolunteersPage()
-    case 'insights': return renderInsightsPage()
-    case 'audit': return renderAuditPage()
-    default: return renderOverviewPage()
-  }
+function handleResetDemo() {
+  try { localStorage.removeItem(STORAGE_KEY) } catch {}
+  state.reports = seedReports.map(r => normalizeReport(r))
+  state.auditTrail = state.reports.map((r, i) => ({ id: `AT-${i+1}`, type: 'analyze', reportId: r.id, message: `Case ${r.id} entered queue.`, timestamp: new Date(Date.now() - (i+1)*60000).toISOString(), metadata: {} }))
+  state.selectedReportId = state.reports[0]?.id || null
+  state.nextReportNumber = 1045; state.nextAuditNumber = state.reports.length + 1
+  state.analysisStatus = { kind: 'success', message: 'Demo reset to initial state.' }
+  saveSnapshot(); render()
 }
 
-let revealObserver = null
-
-function ensureRevealObserver() {
-  if (revealObserver) return revealObserver
-
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-    revealObserver = { observe: () => {}, unobserve: () => {}, disconnect: () => {} }
-    return revealObserver
-  }
-
-  revealObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return
-        entry.target.classList.add('in-view')
-        revealObserver.unobserve(entry.target)
-      })
-    },
-    { root: null, threshold: 0.12, rootMargin: '40px 0px -10% 0px' },
-  )
-
-  return revealObserver
+function handleExportAudit() {
+  const blob = new Blob([JSON.stringify(state.auditTrail, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob); const a = document.createElement('a')
+  a.href = url; a.download = `audit-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(url)
 }
 
-function applyScrollReveals() {
-  const nodes = Array.from(document.querySelectorAll('.reveal'))
-  if (!nodes.length) return
-
-  const observer = ensureRevealObserver()
-  nodes.forEach((node) => {
-    if (node.classList.contains('in-view')) return
-    observer.observe(node)
-  })
-}
+// ── Main Render ──
 
 function render() {
   state.page = getPage()
-  document.body.dataset.page = state.page
-
-  root.innerHTML = `
-    <div class="app-shell">
-      ${renderHeader()}
-      <main class="content">${renderPageContent(state.page)}</main>
-    </div>
-  `
-
+  let content
+  switch (state.page) {
+    case 'cases': content = renderCasesPage(); break
+    case 'intake': content = renderIntakePage(); break
+    case 'volunteers': content = renderVolunteersPage(); break
+    case 'insights': content = renderInsightsPage(); break
+    case 'audit': content = renderAuditPage(); break
+    default: content = renderOverviewPage()
+  }
+  root.innerHTML = renderNavbar() + `<main>${content}</main>`
   attachListeners()
-  applyScrollReveals()
-  updateBackendStatusHint()
   saveSnapshot()
 }
 
-window.addEventListener('hashchange', render)
-render()
-syncBackendStatus()
-setInterval(syncBackendStatus, 60000)
+// ── Backend Sync ──
+
+async function syncBackendStatus() {
+  try {
+    const res = await fetch('/api/health'); if (!res.ok) throw new Error()
+    const p = await res.json()
+    state.backend.available = true; state.backend.geminiConfigured = Boolean(p.geminiConfigured); state.backend.model = p.model || null
+  } catch { state.backend.available = false; state.backend.geminiConfigured = false; state.backend.model = null }
+}
 
 async function syncStateFromBackend() {
   try {
-    const response = await fetch('/api/state')
-    if (!response.ok) return
-    const payload = await response.json()
-    if (!payload.state || !payload.state.reports?.length) return
-    const saved = loadSnapshot()
-    if (!saved || !saved.reports?.length) {
-      state.reports = payload.state.reports.map((r) => normalizeReport(r))
-      state.auditTrail = payload.state.auditTrail || state.auditTrail
-      state.selectedReportId = payload.state.selectedReportId || state.selectedReportId
-      state.filters = payload.state.filters || state.filters
-      state.nextReportNumber = payload.state.nextReportNumber || state.nextReportNumber
-      state.nextAuditNumber = payload.state.nextAuditNumber || state.nextAuditNumber
+    const res = await fetch('/api/state'); if (!res.ok) return
+    const p = await res.json()
+    if (!p.state?.reports?.length) return
+    if (!loadSnapshot()?.reports?.length) {
+      state.reports = p.state.reports.map(r => normalizeReport(r))
+      state.auditTrail = p.state.auditTrail || state.auditTrail
+      state.selectedReportId = p.state.selectedReportId || state.selectedReportId
+      state.nextReportNumber = p.state.nextReportNumber || state.nextReportNumber
+      state.nextAuditNumber = p.state.nextAuditNumber || state.nextAuditNumber
       render()
     }
-  } catch {
-    // Backend not available, use localStorage
-  }
+  } catch {}
 }
 
+// ── Boot ──
+window.addEventListener('hashchange', render)
+render()
+syncBackendStatus()
 syncStateFromBackend()
+setInterval(syncBackendStatus, 60000)

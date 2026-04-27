@@ -1,28 +1,28 @@
 {
-  "generatedAt": "2026-04-16T01:05:25.159Z",
+  "generatedAt": "2026-04-27T14:33:41.132Z",
   "datasetVersion": "phase1-gold-v1",
   "offline": false,
   "model": "gemini-2.5-flash",
   "metrics": {
     "totalCases": 12,
-    "geminiCases": 1,
-    "fallbackCases": 11,
-    "fallbackRatePct": 91.7,
+    "geminiCases": 0,
+    "fallbackCases": 12,
+    "fallbackRatePct": 100,
     "issueTypeAccuracyPct": 100,
     "urgencyAccuracyPct": 100,
     "locationAccuracyPct": 100,
     "averageExtractionScorePct": 100,
-    "averageLatencyMs": 2225,
-    "p95LatencyMs": 3838
+    "averageLatencyMs": 2966,
+    "p95LatencyMs": 6688
   },
   "cases": [
     {
       "id": "G-001",
-      "provider": "gemini",
-      "fallbackUsed": false,
-      "fallbackReason": "",
-      "attempts": 1,
-      "latencyMs": 3838,
+      "provider": "fallback-local",
+      "fallbackUsed": true,
+      "fallbackReason": "GEMINI_HIGH_DEMAND",
+      "attempts": 3,
+      "latencyMs": 6688,
       "prediction": {
         "issueType": "Water shortage",
         "location": "South District",
@@ -46,7 +46,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2125,
+      "latencyMs": 6462,
       "prediction": {
         "issueType": "Flood relief",
         "location": "Riverside Zone",
@@ -70,7 +70,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2108,
+      "latencyMs": 2219,
       "prediction": {
         "issueType": "Medical support",
         "location": "Central Ward",
@@ -94,7 +94,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2092,
+      "latencyMs": 2216,
       "prediction": {
         "issueType": "Food support",
         "location": "West End",
@@ -118,7 +118,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2066,
+      "latencyMs": 2168,
       "prediction": {
         "issueType": "Education support",
         "location": "East Market",
@@ -142,7 +142,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2033,
+      "latencyMs": 2246,
       "prediction": {
         "issueType": "Water shortage",
         "location": "North Point",
@@ -166,7 +166,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2041,
+      "latencyMs": 2232,
       "prediction": {
         "issueType": "General support",
         "location": "Riverside Zone",
@@ -190,7 +190,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2093,
+      "latencyMs": 2228,
       "prediction": {
         "issueType": "Food support",
         "location": "Central Ward",
@@ -214,7 +214,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2114,
+      "latencyMs": 2118,
       "prediction": {
         "issueType": "Flood relief",
         "location": "South District",
@@ -238,7 +238,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2047,
+      "latencyMs": 2390,
       "prediction": {
         "issueType": "Medical support",
         "location": "North Point",
@@ -262,7 +262,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2054,
+      "latencyMs": 2251,
       "prediction": {
         "issueType": "Water shortage",
         "location": "West End",
@@ -286,7 +286,7 @@
       "fallbackUsed": true,
       "fallbackReason": "GEMINI_HIGH_DEMAND",
       "attempts": 3,
-      "latencyMs": 2090,
+      "latencyMs": 2372,
       "prediction": {
         "issueType": "General support",
         "location": "East Market",

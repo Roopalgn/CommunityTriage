@@ -392,7 +392,7 @@ function renderHeader() {
       </div>
 
       <nav class="nav-pills" aria-label="Primary">
-        ${navItems.map((item) => `<button type="button" class="nav-chip ${state.page === item.id ? 'active' : ''}" data-route="${item.id}">${item.label}</button>`).join('')}
+        ${navItems.map((item) => `<button type="button" class="nav-chip ${state.page === item.id ? 'active' : ''}" data-route="${item.id}" aria-current="${state.page === item.id ? 'page' : 'false'}">${item.label}</button>`).join('')}
       </nav>
 
       <aside class="focus-card">
@@ -505,7 +505,7 @@ function renderCasesPage() {
           </div>
 
           <div class="case-list">
-            ${filteredReports.map((report) => `
+            ${filteredReports.length ? filteredReports.map((report) => `
               <article class="case-card ${report.id === selected.id ? 'active' : ''}">
                 <div class="case-head">
                   <div>
@@ -527,7 +527,7 @@ function renderCasesPage() {
                   ${report.assignedVolunteerId ? `<button type="button" class="ghost-button danger" data-unassign-report="${sanitize(report.id)}">Unassign</button>` : `<button type="button" data-assign-suggested="${sanitize(report.id)}">Assign suggested</button>`}
                 </div>
               </article>
-            `).join('')}
+            `).join('') : '<div class="empty-state">No cases match the current filters. Try clearing search or changing urgency and location filters.</div>'}
           </div>
         </article>
 
@@ -613,7 +613,8 @@ function renderIntakePage() {
           <form class="intake-form" id="report-form">
             <label>
               <span>Free-text incident report</span>
-              <textarea name="incident" rows="6" placeholder="Example: Families in South District need clean water immediately. Two hand pumps are broken and volunteers are required for distribution."></textarea>
+              <textarea id="incident-field" name="incident" rows="6" maxlength="${INCIDENT_CHAR_LIMIT}" placeholder="Example: Families in South District need clean water immediately. Two hand pumps are broken and volunteers are required for distribution."></textarea>
+              <small id="incident-char-count">0/${INCIDENT_CHAR_LIMIT}</small>
             </label>
 
             <div class="form-grid">
@@ -905,6 +906,13 @@ function attachListeners() {
   document.getElementById('sort-filter')?.addEventListener('change', (event) => { state.filters.sort = event.target.value; render() })
   document.getElementById('override-form')?.addEventListener('submit', handleOverrideSubmit)
   document.getElementById('report-form')?.addEventListener('submit', handleReportSubmit)
+  document.getElementById('incident-field')?.addEventListener('input', (event) => {
+    const value = String(event.target.value || '')
+    const counter = document.getElementById('incident-char-count')
+    if (!counter) return
+    counter.textContent = `${value.length}/${INCIDENT_CHAR_LIMIT}`
+    counter.classList.toggle('limit-near', value.length >= INCIDENT_CHAR_LIMIT - 200)
+  })
   document.getElementById('csv-upload')?.addEventListener('change', handleCsvImport)
   document.getElementById('reset-demo-btn')?.addEventListener('click', handleResetDemo)
   document.getElementById('export-audit-btn')?.addEventListener('click', handleExportAudit)

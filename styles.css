@@ -40,7 +40,7 @@ body {
   color: var(--ct-text);
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   max-height: 100vh;
 }
 
@@ -60,7 +60,7 @@ main {
   overflow: hidden;
 }
 
-/* Page container — fills remaining viewport */
+/* Page container — fills remaining viewport, never shrinks */
 .ct-page {
   flex: 1;
   display: flex;
@@ -76,24 +76,29 @@ main {
   display: flex;
   gap: 1rem;
   min-height: 0;
+  overflow: hidden;
 }
 
 .ct-split-col {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .ct-split-main {
   flex: 7;
+  min-width: 0;
 }
 
 .ct-split-side {
   flex: 5;
+  min-width: 0;
 }
 
 .ct-split-equal {
   flex: 1;
+  min-width: 0;
 }
 
 /* Scrollable panel — fills its flex parent */
@@ -122,11 +127,13 @@ main {
   .ct-split {
     flex-direction: column;
     overflow-y: auto;
+    overflow-x: hidden;
   }
   .ct-split-main,
   .ct-split-side {
     flex: none;
     min-height: auto;
+    overflow: visible;
   }
 }
 
@@ -440,7 +447,7 @@ textarea.form-control {
 
 @media (max-width: 991px) {
   .ct-detail-panel {
-    min-height: auto;
+    min-height: 320px;
     overflow-y: visible;
   }
 }
@@ -510,6 +517,7 @@ textarea.form-control {
   display: flex;
   gap: 1rem;
   min-height: 0;
+  overflow: hidden;
 }
 
 .ct-insight-charts > .ct-card {
@@ -527,7 +535,8 @@ textarea.form-control {
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
   min-height: 0;
-  align-content: stretch;
+  align-content: start;
+  overflow-y: auto;
 }
 
 .ct-vol-grid > .ct-card {
@@ -591,3 +600,119 @@ textarea.form-control {
   }
 }
 
+/* ── How It Works — step list ── */
+
+.ct-how-step {
+  display: flex;
+  gap: 0.875rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--ct-border);
+  align-items: flex-start;
+}
+
+.ct-how-step:last-child {
+  border-bottom: none;
+}
+
+.ct-how-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ct-primary-dim);
+  border: 1px solid var(--ct-primary-strong);
+  color: var(--ct-primary);
+  font-size: 0.7rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ct-how-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ct-how-step-title {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--ct-text);
+  line-height: 1.3;
+}
+
+.ct-how-step-desc {
+  font-size: 0.75rem;
+  color: var(--ct-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Mini pipeline flow ── */
+
+.ct-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--ct-border);
+  border-radius: var(--ct-radius-sm);
+  padding: 0.625rem 0.75rem;
+  overflow: hidden;
+}
+
+.ct-pipeline-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-pipeline-node-icon {
+  font-size: 1rem;
+  color: var(--ct-primary);
+  opacity: 0.85;
+}
+
+.ct-pipeline-node-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--ct-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.ct-pipeline-arrow {
+  color: var(--ct-text-dim);
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  padding: 0 0.25rem;
+}
+
+/* ── System status block ── */
+
+.ct-sys-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--ct-border);
+  border-radius: var(--ct-radius-sm);
+}
+
+.ct-sys-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.775rem;
+}
+
+.ct-sys-status-row i {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}

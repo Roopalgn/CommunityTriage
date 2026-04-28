@@ -287,10 +287,18 @@ function renderOverviewPage() {
             <div class="col-6 mt-2"><span class="ct-label d-block">Confidence</span><span class="ct-value">${focus.confidence}%</span></div>
           </div>
           <div class="ct-section">
-            <span class="ct-label d-block mb-1">Status</span>
-            <span class="small">${focus.assignedVolunteerId ? sanitize(focus.status) : '<span class=\"text-secondary\">Unassigned</span>'}</span>
+            <span class="ct-label d-block mb-1">Need</span>
+            <span class="small">${sanitize(focus.need)}</span>
           </div>
-          <div class="mt-auto pt-3">
+          <div class="ct-section">
+            <span class="ct-label d-block mb-1">Status</span>
+            <span class="small">${focus.assignedVolunteerId ? sanitize(focus.status) : '<span class="text-secondary">Unassigned — pending review</span>'}</span>
+          </div>
+          <div class="ct-section">
+            <span class="ct-label d-block mb-1">Source</span>
+            <span class="small text-secondary">${sanitize(focus.source)}</span>
+          </div>
+          <div class="ct-section">
             <button class="btn btn-primary btn-sm w-100" data-route="cases"><i class="bi bi-arrow-right me-1"></i>Open in Case Board</button>
           </div>
         </div>
@@ -359,6 +367,21 @@ function renderCasesPage() {
           </div>
 
           <div class="ct-section">
+            <span class="ct-label d-block mb-1">Need</span>
+            <span class="small">${sanitize(selected.need)}</span>
+          </div>
+
+          <div class="ct-section">
+            <span class="ct-label d-block mb-1">AI Reasoning</span>
+            <span class="small text-secondary">${sanitize(selected.reason || '—')}</span>
+          </div>
+
+          <div class="ct-section">
+            <span class="ct-label d-block mb-1">Source</span>
+            <span class="small text-secondary">${sanitize(selected.source)}</span>
+          </div>
+
+          <div class="ct-section">
             <span class="ct-label d-block mb-1">Flags</span>
             ${selected.reviewFlags.length ? selected.reviewFlags.map(f => `<span class="ct-flag ct-flag-${f.code} me-1">${sanitize(f.label)}</span>`).join('') : '<span class="ct-flag ct-flag-ok">No flags</span>'}
           </div>
@@ -372,7 +395,7 @@ function renderCasesPage() {
             </form>
           </div>
 
-          <div class="ct-section mt-auto">
+          <div class="ct-section">
             <div class="ct-eyebrow">Assignment</div>
             <select class="form-select form-select-sm mb-2" id="assignment-select" data-report-id="${sanitize(selected.id)}">${volunteers.map(v => `<option value="${sanitize(v.id)}" ${v.id === (selected.assignedVolunteerId || selected.match?.id) ? 'selected' : ''}>${sanitize(v.name)} (${v.score}%)</option>`).join('')}</select>
             <div class="d-flex gap-2">
@@ -396,44 +419,105 @@ function renderIntakePage() {
       <p class="ct-section-desc mb-3">Submit a new incident for AI-powered triage. CSV batch import supported.</p>
     </div>
     <div class="ct-split">
-      <div class="ct-split-col ct-split-main">
-        <div class="ct-card flex-grow-1 d-flex flex-column">
-          <div class="d-flex flex-wrap gap-2 mb-3">
+      <div class="ct-split-col ct-split-main" style="overflow-y:auto">
+        <div class="ct-card d-flex flex-column" style="flex:1;min-height:0">
+          <div class="d-flex flex-wrap gap-2 mb-3" style="flex-shrink:0">
             <button class="btn btn-outline-light btn-sm" data-demo-key="water"><i class="bi bi-droplet me-1"></i>Water crisis</button>
             <button class="btn btn-outline-light btn-sm" data-demo-key="flood"><i class="bi bi-cloud-rain me-1"></i>Flood relief</button>
             <button class="btn btn-outline-light btn-sm" data-demo-key="medical"><i class="bi bi-heart-pulse me-1"></i>Medical camp</button>
           </div>
-          <form id="report-form" class="flex-grow-1 d-flex flex-column">
-            <div class="mb-3 flex-grow-1 d-flex flex-column">
+          <form id="report-form" class="d-flex flex-column" style="flex:1;min-height:0">
+            <div class="mb-3 d-flex flex-column" style="flex:1;min-height:0">
               <label class="form-label ct-label">Incident report</label>
-              <textarea class="form-control flex-grow-1" id="incident-field" name="incident" maxlength="${INCIDENT_CHAR_LIMIT}" placeholder="Describe the community need..." style="min-height:100px;resize:none"></textarea>
+              <textarea class="form-control" id="incident-field" name="incident" maxlength="${INCIDENT_CHAR_LIMIT}" placeholder="Describe the community need..." style="flex:1;min-height:100px;resize:none"></textarea>
               <div class="form-text text-end small" id="incident-char-count">0/${INCIDENT_CHAR_LIMIT}</div>
             </div>
-            <div class="d-flex gap-3 mb-3 flex-wrap">
+            <div class="d-flex gap-3 mb-3 flex-wrap" style="flex-shrink:0">
               <div class="flex-fill"><label class="form-label ct-label">Location</label><input class="form-control form-control-sm" name="location" placeholder="South District" /></div>
               <div class="flex-fill"><label class="form-label ct-label">Support needed</label><input class="form-control form-control-sm" name="support" placeholder="Water, food, medical" /></div>
               <div class="flex-fill"><label class="form-label ct-label">Source</label><input class="form-control form-control-sm" name="source" placeholder="Field note, survey" /></div>
             </div>
-            <div class="mb-3">
+            <div class="mb-3" style="flex-shrink:0">
               <label class="form-label ct-label">CSV batch import</label>
               <input class="form-control form-control-sm" id="csv-upload" type="file" accept=".csv,text/csv" />
             </div>
-            <button type="submit" class="btn btn-primary" id="analyze-button">${state.analysisStatus.kind === 'loading' ? '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing...' : '<i class="bi bi-cpu me-1"></i>Analyze report'}</button>
+            <button type="submit" class="btn btn-primary" id="analyze-button" style="flex-shrink:0">${state.analysisStatus.kind === 'loading' ? '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing...' : '<i class="bi bi-cpu me-1"></i>Analyze report'}</button>
           </form>
           ${state.analysisStatus.message ? `<div class="alert alert-${state.analysisStatus.kind === 'error' ? 'danger' : state.analysisStatus.kind === 'success' ? 'success' : 'info'} mt-3 small py-2" role="alert">${sanitize(state.analysisStatus.message)}</div>` : ''}
         </div>
       </div>
-      <div class="ct-split-col ct-split-side">
-        <div class="ct-card flex-grow-1 d-flex flex-column">
-          <div class="ct-eyebrow">How it works</div>
-          <div class="mb-3">
-            <div class="d-flex align-items-start gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold flex-shrink-0" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">1</span><span class="small">Text is sent to Google Gemini for structured extraction</span></div>
-            <div class="d-flex align-items-start gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold flex-shrink-0" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">2</span><span class="small">Urgency, issue type, and confidence are scored</span></div>
-            <div class="d-flex align-items-start gap-2 mb-2"><span class="badge bg-primary text-dark fw-bold flex-shrink-0" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">3</span><span class="small">Best-fit volunteer is matched and assigned</span></div>
-            <div class="d-flex align-items-start gap-2"><span class="badge bg-primary text-dark fw-bold flex-shrink-0" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center">4</span><span class="small">If Gemini fails, local fallback ensures continuity</span></div>
+      <div class="ct-split-col ct-split-side" style="overflow-y:auto">
+        <div class="ct-card d-flex flex-column" style="flex:1;min-height:0">
+          <div class="ct-eyebrow mb-2">How it works</div>
+
+          <div class="ct-pipeline mb-3" style="flex-shrink:0">
+            <div class="ct-pipeline-node">
+              <i class="bi bi-file-text ct-pipeline-node-icon"></i>
+              <span class="ct-pipeline-node-label">Input</span>
+            </div>
+            <span class="ct-pipeline-arrow">›</span>
+            <div class="ct-pipeline-node">
+              <i class="bi bi-cpu ct-pipeline-node-icon"></i>
+              <span class="ct-pipeline-node-label">AI Parse</span>
+            </div>
+            <span class="ct-pipeline-arrow">›</span>
+            <div class="ct-pipeline-node">
+              <i class="bi bi-bullseye ct-pipeline-node-icon"></i>
+              <span class="ct-pipeline-node-label">Score</span>
+            </div>
+            <span class="ct-pipeline-arrow">›</span>
+            <div class="ct-pipeline-node">
+              <i class="bi bi-person-check ct-pipeline-node-icon"></i>
+              <span class="ct-pipeline-node-label">Assign</span>
+            </div>
           </div>
-          <div class="mt-auto" style="border-top:1px solid var(--ct-border);padding-top:0.75rem">
-            <small class="text-secondary">${state.backend.geminiConfigured ? '<i class="bi bi-check-circle text-success me-1"></i>Gemini configured. Fallback available.' : '<i class="bi bi-info-circle me-1"></i>Local fallback mode. Set GEMINI_API_KEY for AI.'}</small>
+
+          <div style="flex:1;min-height:0">
+            <div class="ct-how-step">
+              <div class="ct-how-step-num">1</div>
+              <div class="ct-how-step-body">
+                <span class="ct-how-step-title">Structured extraction via Gemini</span>
+                <span class="ct-how-step-desc">Unstructured reports are parsed into issue type, urgency, location, and affected group.</span>
+              </div>
+            </div>
+            <div class="ct-how-step">
+              <div class="ct-how-step-num">2</div>
+              <div class="ct-how-step-body">
+                <span class="ct-how-step-title">Urgency and confidence scoring</span>
+                <span class="ct-how-step-desc">Each case receives a priority score (0–99) and a confidence rating based on signal strength.</span>
+              </div>
+            </div>
+            <div class="ct-how-step">
+              <div class="ct-how-step-num">3</div>
+              <div class="ct-how-step-body">
+                <span class="ct-how-step-title">Volunteer matching and assignment</span>
+                <span class="ct-how-step-desc">Skills, location, and availability are scored to surface the best-fit volunteer automatically.</span>
+              </div>
+            </div>
+            <div class="ct-how-step">
+              <div class="ct-how-step-num">4</div>
+              <div class="ct-how-step-body">
+                <span class="ct-how-step-title">Local fallback if AI is unavailable</span>
+                <span class="ct-how-step-desc">Keyword-based triage runs offline so operations never stop, even without a network.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-auto pt-3" style="flex-shrink:0">
+            <div class="ct-sys-status">
+              <div class="ct-sys-status-row">
+                <i class="bi ${state.backend.geminiConfigured ? 'bi-check-circle-fill text-success' : 'bi-circle-half text-warning'}"></i>
+                <span style="color:var(--ct-text)">${state.backend.geminiConfigured ? 'Gemini AI active' : 'Local fallback mode'}</span>
+              </div>
+              <div class="ct-sys-status-row">
+                <i class="bi bi-shield-check" style="color:var(--ct-primary)"></i>
+                <span style="color:var(--ct-text-muted)">Fallback always ready</span>
+              </div>
+              <div class="ct-sys-status-row">
+                <i class="bi bi-lock" style="color:var(--ct-text-dim)"></i>
+                <span style="color:var(--ct-text-muted)">Reports stay on your server</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -449,9 +533,18 @@ function renderVolunteersPage() {
   const topId = ranked[0]?.v.id
   return `
   <div class="ct-page fade-in">
-    <div class="d-flex justify-content-between align-items-center mb-3" style="flex-shrink:0">
+    <div class="d-flex justify-content-between align-items-center mb-2" style="flex-shrink:0">
       <div><h4 class="ct-section-title mb-0">Volunteer Coordination</h4><p class="ct-section-desc mb-0">Match the right person to the right case.</p></div>
       <span class="badge ${urgencyBadgeClass(selected.urgency)}">${sanitize(selected.title)}</span>
+    </div>
+    <div class="ct-card d-flex align-items-center gap-3 py-2 px-3 mb-3" style="flex-shrink:0;background:var(--ct-primary-dim);border-color:var(--ct-primary-strong)">
+      <i class="bi bi-bullseye" style="color:var(--ct-primary);font-size:1rem;flex-shrink:0"></i>
+      <div class="d-flex gap-3 flex-wrap small">
+        <span><span class="ct-label me-1">Case</span><span style="color:var(--ct-text)">${sanitize(selected.id)}</span></span>
+        <span><span class="ct-label me-1">Issue</span><span style="color:var(--ct-text)">${sanitize(selected.issueType)}</span></span>
+        <span><span class="ct-label me-1">Location</span><span style="color:var(--ct-text)">${sanitize(selected.location)}</span></span>
+        <span><span class="ct-label me-1">Need</span><span style="color:var(--ct-text)">${sanitize(selected.need)}</span></span>
+      </div>
     </div>
     <div class="ct-vol-grid">
       ${ranked.map(({ v, fit }) => {
@@ -461,7 +554,7 @@ function renderVolunteersPage() {
           <div class="ct-card ct-card-lift ${isAssigned ? 'ct-card-active' : isTop ? 'ct-top-match' : ''} d-flex flex-column">
             <div class="d-flex justify-content-between align-items-start mb-1">
               <strong class="small">${sanitize(v.name)}</strong>
-              ${isTop ? '<span class="ct-flag ct-flag-ok">Best match</span>' : ''}
+              ${isAssigned ? '<span class="ct-flag ct-flag-ok">Assigned</span>' : isTop ? '<span class="ct-flag ct-flag-ok">Best match</span>' : ''}
             </div>
             <p class="small text-secondary mb-1" style="font-size:0.8rem">${sanitize(v.skills.join(' · '))}</p>
             <small class="text-secondary d-block mb-2"><i class="bi bi-geo-alt me-1"></i>${sanitize(v.location)} · ${sanitize(v.availability)}</small>
@@ -469,8 +562,9 @@ function renderVolunteersPage() {
               <span class="ct-label">Fit score</span>
               <span class="small fw-bold" style="color:var(--ct-primary)">${fit.score}%</span>
             </div>
-            <div class="ct-progress-mini"><div class="fill" style="width:${fit.score}%"></div></div>
-            <button class="btn ${isAssigned ? 'btn-primary' : 'btn-outline-light'} btn-sm w-100 mt-auto pt-2" data-assign-volunteer="${sanitize(selected.id)}" data-volunteer-id="${sanitize(v.id)}">${isAssigned ? '<i class="bi bi-check-circle me-1"></i>Assigned' : 'Assign to case'}</button>
+            <div class="ct-progress-mini mb-2"><div class="fill" style="width:${fit.score}%"></div></div>
+            <small class="text-secondary mb-2" style="font-size:0.72rem;line-height:1.4">${sanitize(fit.summary)}</small>
+            <button class="btn ${isAssigned ? 'btn-primary' : 'btn-outline-light'} btn-sm w-100 mt-auto" data-assign-volunteer="${sanitize(selected.id)}" data-volunteer-id="${sanitize(v.id)}">${isAssigned ? '<i class="bi bi-check-circle me-1"></i>Assigned' : 'Assign to case'}</button>
           </div>`
       }).join('')}
     </div>
@@ -482,14 +576,25 @@ function renderVolunteersPage() {
 function renderInsightsPage() {
   const byLoc = state.reports.reduce((a, r) => { a[r.location] = (a[r.location] || 0) + 1; return a }, {})
   const byIssue = state.reports.reduce((a, r) => { a[r.issueType] = (a[r.issueType] || 0) + 1; return a }, {})
+  const byUrgency = { Critical: 0, High: 0, Medium: 0 }
+  state.reports.forEach(r => { byUrgency[r.urgency] = (byUrgency[r.urgency] || 0) + 1 })
   const locItems = Object.entries(byLoc).sort((a, b) => b[1] - a[1]).slice(0, 5)
   const issueItems = Object.entries(byIssue).sort((a, b) => b[1] - a[1]).slice(0, 5)
   const avgConf = Math.round(state.reports.reduce((s, r) => s + r.confidence, 0) / Math.max(state.reports.length, 1))
   const urgentPct = Math.round(state.reports.filter(r => r.urgency === 'Critical' || r.urgency === 'High').length / Math.max(state.reports.length, 1) * 100)
   const peak = Math.max(...locItems.map(([, c]) => c), 1)
   const issuePeak = Math.max(...issueItems.map(([, c]) => c), 1)
+  const total = Math.max(state.reports.length, 1)
 
   function bars(items, p) { return items.map(([label, count]) => `<div class="d-flex align-items-center gap-2 mb-2"><span class="text-secondary small text-end" style="width:110px;flex-shrink:0;font-size:0.8rem">${sanitize(label)}</span><div class="ct-bar-track flex-grow-1"><div class="ct-bar-fill" style="width:${Math.max(8, Math.round(count/p*100))}%"></div></div><span class="small fw-600" style="width:24px;color:var(--ct-primary)">${count}</span></div>`).join('') }
+
+  const urgencyColors = { Critical: 'var(--ct-danger)', High: 'var(--ct-warning)', Medium: '#3B82F6' }
+  const urgencyBars = Object.entries(byUrgency).map(([label, count]) => `
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="text-secondary small text-end" style="width:60px;flex-shrink:0;font-size:0.8rem">${label}</span>
+      <div class="ct-bar-track flex-grow-1"><div class="ct-bar-fill" style="width:${Math.max(4, Math.round(count/total*100))}%;background:${urgencyColors[label]}"></div></div>
+      <span class="small fw-600" style="width:24px;color:${urgencyColors[label]}">${count}</span>
+    </div>`).join('')
 
   return `
   <div class="ct-page fade-in">
@@ -504,8 +609,23 @@ function renderInsightsPage() {
       <div class="ct-card ct-card-lift ct-metric flex-fill"><div class="metric-icon"><i class="bi bi-exclamation-diamond"></i></div><div class="metric-number">${urgentPct}%</div><div class="metric-label">Urgent Share</div><span class="${urgentPct > 50 ? 'ct-trend-up' : 'ct-trend-neutral'}">${urgentPct > 50 ? '↑ High load' : '→ Manageable'}</span></div>
     </div>
     <div class="ct-insight-charts">
-      <div class="ct-card flex-fill d-flex flex-column"><div class="ct-eyebrow">By Location</div>${locItems.length ? bars(locItems, peak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div>
-      <div class="ct-card flex-fill d-flex flex-column"><div class="ct-eyebrow">By Issue Type</div>${issueItems.length ? bars(issueItems, issuePeak) : '<p class="text-secondary small mb-0">No data yet</p>'}</div>
+      <div class="ct-card d-flex flex-column" style="flex:2">
+        <div class="ct-eyebrow">By Location</div>
+        ${locItems.length ? bars(locItems, peak) : '<p class="text-secondary small mb-0">No data yet</p>'}
+      </div>
+      <div class="ct-card d-flex flex-column" style="flex:2">
+        <div class="ct-eyebrow">By Issue Type</div>
+        ${issueItems.length ? bars(issueItems, issuePeak) : '<p class="text-secondary small mb-0">No data yet</p>'}
+      </div>
+      <div class="ct-card d-flex flex-column" style="flex:1">
+        <div class="ct-eyebrow">By Urgency</div>
+        ${urgencyBars}
+        <div class="ct-section mt-auto" style="padding-top:0.75rem;margin-top:0.75rem">
+          <div class="ct-label mb-1">Flagged for review</div>
+          <span class="ct-value" style="font-size:1rem">${state.reports.filter(r => r.reviewFlags.length).length}</span>
+          <span class="text-secondary small ms-1">of ${state.reports.length} cases</span>
+        </div>
+      </div>
     </div>
   </div>`
 }
@@ -513,11 +633,25 @@ function renderInsightsPage() {
 // ── Render: Audit ──
 
 function renderAuditPage() {
+  const typeCounts = state.auditTrail.reduce((a, e) => { a[e.type] = (a[e.type] || 0) + 1; return a }, {})
   return `
   <div class="ct-page fade-in">
     <div class="d-flex justify-content-between align-items-center mb-3" style="flex-shrink:0">
       <div><h4 class="ct-section-title mb-0">Audit Trail</h4><p class="ct-section-desc mb-0">Every action stays visible for trust and accountability.</p></div>
       <button class="btn btn-outline-light btn-sm" id="export-audit-btn"><i class="bi bi-download me-1"></i>Export JSON</button>
+    </div>
+    <div class="d-flex gap-2 mb-3 flex-wrap" style="flex-shrink:0">
+      ${Object.entries(typeCounts).map(([type, count]) => `
+        <div class="ct-card py-2 px-3 d-flex align-items-center gap-2" style="flex-shrink:0">
+          <span class="badge bg-secondary" style="font-size:0.65rem">${sanitize(type)}</span>
+          <span class="fw-bold small" style="color:var(--ct-primary)">${count}</span>
+          <span class="text-secondary small">event${count !== 1 ? 's' : ''}</span>
+        </div>`).join('')}
+      ${state.auditTrail.length ? `
+        <div class="ct-card py-2 px-3 d-flex align-items-center gap-2" style="flex-shrink:0">
+          <i class="bi bi-clock-history" style="color:var(--ct-text-muted)"></i>
+          <span class="text-secondary small">Last: ${new Date(state.auditTrail[0].timestamp).toLocaleTimeString()}</span>
+        </div>` : ''}
     </div>
     <div class="ct-card ct-scroll-panel p-0">
       <div class="ct-scroll-inner">
@@ -529,7 +663,12 @@ function renderAuditPage() {
           </div>
           <p class="small text-secondary mb-0">${sanitize(e.message)}</p>
         </div>
-      `).join('') : '<div class="p-4 text-center text-secondary">No audit events yet.</div>'}
+      `).join('') : `
+        <div class="d-flex flex-column align-items-center justify-content-center p-5 text-center" style="flex:1">
+          <i class="bi bi-shield-check mb-3" style="font-size:2rem;color:var(--ct-text-dim)"></i>
+          <p class="text-secondary small mb-1">No audit events yet.</p>
+          <p class="text-secondary small mb-0" style="font-size:0.75rem">Actions like analyze, assign, and override will appear here.</p>
+        </div>`}
       </div>
     </div>
   </div>`

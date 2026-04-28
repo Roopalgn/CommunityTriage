@@ -7,3 +7,8 @@ dist
 server-stderr.log
 server-stdout.log
 data/state.json
+
+# Internal dev/planning files — not for public repo
+prompt.txt
+plan.md
+info.md

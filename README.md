@@ -10,9 +10,9 @@
 
 | Resource | Link |
 |----------|------|
-| Live prototype | https://community-triage-1044726114281.us-central1.run.app |
+| Live prototype |https://community-triage-580378137613.us-central1.run.app/ |
 | Repository | https://github.com/Roopalgn/CommunityTriage |
-| Demo video | *Add before submission* |
+| Demo video | https://drive.google.com/file/d/1-BZJ4AYHRpJ-DkEGDBUDglfrXEOv_NQf/view?usp=sharing |
 | Architecture | [ARCHITECTURE.md](ARCHITECTURE.md) |
 
 ## The Problem

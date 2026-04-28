@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" style="background:#0B1220">
+  <defs>
+    <style>
+      .tier-bg { fill: #121A2B; stroke: rgba(76, 201, 240, 0.4); stroke-width: 2; }
+      .box { fill: #162235; stroke: rgba(255, 255, 255, 0.12); stroke-width: 1.5; }
+      .box-primary { fill: rgba(76, 201, 240, 0.12); stroke: #4CC9F0; stroke-width: 2; }
+      .box-success { fill: rgba(52, 211, 153, 0.12); stroke: #34D399; stroke-width: 2; }
+      .box-warning { fill: rgba(245, 158, 11, 0.12); stroke: #F59E0B; stroke-width: 2; }
+      .text-title { fill: #E6EDF3; font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; font-weight: 700; }
+      .text-body { fill: #8FA3B8; font-family: 'Inter', -apple-system, sans-serif; font-size: 11px; }
+      .text-small { fill: #5A6F83; font-family: 'Inter', -apple-system, sans-serif; font-size: 10px; }
+      .text-tier { fill: #4CC9F0; font-family: 'Inter', -apple-system, sans-serif; font-size: 14px; font-weight: 700; }
+      .arrow { stroke: #4CC9F0; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .arrow-success { stroke: #34D399; stroke-width: 2; fill: none; marker-end: url(#arrow-success); }
+      .badge { fill: #4CC9F0; }
+      .badge-text { fill: #0B1220; font-family: 'Inter', -apple-system, sans-serif; font-size: 9px; font-weight: 700; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#4CC9F0"/>
+    </marker>
+    <marker id="arrow-success" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#34D399"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="600" y="35" class="text-tier" text-anchor="middle" font-size="18">CommunityTriage — System Architecture</text>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- TIER 1: FRONTEND -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  
+  <rect x="50" y="70" width="1100" height="200" rx="12" class="tier-bg"/>
+  <text x="70" y="95" class="text-tier">Tier 1: Frontend — Browser</text>
+  
+  <!-- UI Layer -->
+  <rect x="80" y="110" width="250" height="130" rx="8" class="box-primary"/>
+  <text x="205" y="130" class="text-title" text-anchor="middle">User Interface</text>
+  <text x="95" y="155" class="text-body">• Overview Dashboard</text>
+  <text x="95" y="175" class="text-body">• Case Board (ranked queue)</text>
+  <text x="95" y="195" class="text-body">• Intake Form + CSV Import</text>
+  <text x="95" y="215" class="text-body">• Volunteer Roster + Insights</text>
+  <text x="95" y="230" class="text-small">Audit Trail</text>
+
+  <!-- State Management -->
+  <rect x="360" y="110" width="250" height="130" rx="8" class="box-primary"/>
+  <text x="485" y="130" class="text-title" text-anchor="middle">State Management</text>
+  <text x="375" y="155" class="text-body">• localStorage (offline-first)</text>
+  <text x="375" y="175" class="text-body">• Backend sync (periodic)</text>
+  <text x="375" y="195" class="text-body">• Reports + Audit Events</text>
+  <text x="375" y="215" class="text-body">• Filters + Assignments</text>
+  <rect x="375" y="222" width="110" height="14" rx="7" class="badge"/>
+  <text x="430" y="232" class="badge-text" text-anchor="middle">Survives Refresh</text>
+
+  <!-- Triage Core -->
+  <rect x="640" y="110" width="250" height="130" rx="8" class="box-primary"/>
+  <text x="765" y="130" class="text-title" text-anchor="middle">Triage Core (Shared)</text>
+  <text x="655" y="155" class="text-body">• Hybrid Priority Scoring</text>
+  <text x="655" y="175" class="text-body">• Duplicate Detection</text>
+  <text x="655" y="195" class="text-body">• Volunteer Fit Matching</text>
+  <text x="655" y="215" class="text-body">• Normalization Logic</text>
+  <rect x="655" y="222" width="100" height="14" rx="7" class="badge"/>
+  <text x="705" y="232" class="badge-text" text-anchor="middle">Frontend + Backend</text>
+
+  <!-- Tech Stack -->
+  <rect x="920" y="110" width="210" height="130" rx="8" class="box"/>
+  <text x="1025" y="130" class="text-title" text-anchor="middle">Tech Stack</text>
+  <text x="935" y="155" class="text-body">Vanilla JS + CSS</text>
+  <text x="935" y="175" class="text-body">Bootstrap 5</text>
+  <text x="935" y="195" class="text-body">Zero build step</text>
+  <text x="935" y="215" class="text-small">No framework overhead</text>
+
+  <!-- Arrow: Frontend → Backend -->
+  <path d="M 600 270 L 600 310" class="arrow"/>
+  <text x="620" y="295" class="text-body">REST API</text>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- TIER 2: BACKEND -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  
+  <rect x="50" y="320" width="1100" height="280" rx="12" class="tier-bg"/>
+  <text x="70" y="345" class="text-tier">Tier 2: Backend — Node.js (Google Cloud Run)</text>
+
+  <!-- Request Pipeline -->
+  <rect x="80" y="360" width="520" height="220" rx="8" class="box-success"/>
+  <text x="340" y="380" class="text-title" text-anchor="middle">Request Pipeline</text>
+  
+  <text x="95" y="405" class="text-title" font-size="11">1. Rate Limiting</text>
+  <text x="110" y="420" class="text-small">45 requests/min per client IP</text>
+  
+  <text x="95" y="445" class="text-title" font-size="11">2. Input Validation</text>
+  <text x="110" y="460" class="text-small">4000 char incident · 500 char fields</text>
+  
+  <text x="95" y="485" class="text-title" font-size="11">3. Gemini API Call</text>
+  <text x="110" y="500" class="text-small">Structured prompt → JSON extraction</text>
+  <text x="110" y="515" class="text-small">Retry on 429/503/504 (exp. backoff)</text>
+  
+  <text x="95" y="540" class="text-title" font-size="11">4. Response Normalization</text>
+  <text x="110" y="555" class="text-small">Parse + validate + add metadata</text>
+  <text x="110" y="570" class="text-small">Return: analysis + requestId + latency</text>
+
+  <text x="320" y="405" class="text-title" font-size="11">5. Persistence</text>
+  <text x="335" y="420" class="text-small">Save to data/state.json</text>
+  
+  <text x="320" y="445" class="text-title" font-size="11">6. Security Headers</text>
+  <text x="335" y="460" class="text-small">CSP · CORS · X-Frame-Options</text>
+  
+  <text x="320" y="485" class="text-title" font-size="11">7. Static File Serving</text>
+  <text x="335" y="500" class="text-small">HTML · JS · CSS · SVG</text>
+  
+  <text x="320" y="525" class="text-title" font-size="11">8. Graceful Shutdown</text>
+  <text x="335" y="540" class="text-small">SIGTERM/SIGINT handlers</text>
+
+  <!-- Backend Stack -->
+  <rect x="630" y="360" width="240" height="110" rx="8" class="box"/>
+  <text x="750" y="380" class="text-title" text-anchor="middle">Backend Stack</text>
+  <text x="645" y="405" class="text-body">Node.js 20</text>
+  <text x="645" y="425" class="text-body">Zero npm dependencies</text>
+  <text x="645" y="445" class="text-body">Built-in modules only</text>
+  <text x="645" y="460" class="text-small">http · fs · crypto · path</text>
+
+  <!-- Deployment -->
+  <rect x="630" y="485" width="240" height="95" rx="8" class="box"/>
+  <text x="750" y="505" class="text-title" text-anchor="middle">Deployment</text>
+  <text x="645" y="530" class="text-body">Google Cloud Run</text>
+  <text x="645" y="550" class="text-body">Docker (node:20-slim)</text>
+  <text x="645" y="570" class="text-body">Auto-scaling · Serverless</text>
+
+  <!-- Fallback -->
+  <rect x="900" y="360" width="230" height="110" rx="8" class="box-warning"/>
+  <text x="1015" y="380" class="text-title" text-anchor="middle">Fallback Strategy</text>
+  <text x="915" y="405" class="text-body">If Gemini fails:</text>
+  <text x="915" y="425" class="text-body">→ Return error codes</text>
+  <text x="915" y="445" class="text-body">→ Frontend uses local</text>
+  <text x="915" y="460" class="text-small">   rule-based triage</text>
+
+  <!-- API Endpoints -->
+  <rect x="900" y="485" width="230" height="95" rx="8" class="box"/>
+  <text x="1015" y="505" class="text-title" text-anchor="middle">API Endpoints</text>
+  <text x="915" y="525" class="text-small">POST /api/analyze-report</text>
+  <text x="915" y="540" class="text-small">GET /api/health</text>
+  <text x="915" y="555" class="text-small">GET/PUT /api/state</text>
+  <text x="915" y="570" class="text-small">GET / (static files)</text>
+
+  <!-- Arrow: Backend → Gemini -->
+  <path d="M 600 600 L 600 640" class="arrow-success"/>
+  <text x="620" y="625" class="text-body">HTTPS</text>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- TIER 3: GEMINI API -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  
+  <rect x="50" y="650" width="1100" height="200" rx="12" class="tier-bg"/>
+  <text x="70" y="675" class="text-tier">Tier 3: Google Gemini API</text>
+
+  <!-- Gemini Details -->
+  <rect x="80" y="690" width="520" height="130" rx="8" class="box-success"/>
+  <text x="340" y="710" class="text-title" text-anchor="middle">generativelanguage.googleapis.com</text>
+  
+  <text x="95" y="735" class="text-body">Model: gemini-2.5-flash</text>
+  <text x="95" y="755" class="text-body">Temperature: 0.2 (deterministic)</text>
+  <text x="95" y="775" class="text-body">Response: application/json</text>
+  <text x="95" y="795" class="text-body">Timeout: 15 seconds</text>
+  <text x="95" y="810" class="text-small">Max retries: 2 (exponential backoff)</text>
+
+  <text x="320" y="735" class="text-body">Extracts 8 fields:</text>
+  <text x="320" y="755" class="text-small">• issueType · urgency · location</text>
+  <text x="320" y="770" class="text-small">• affectedGroup · resources</text>
+  <text x="320" y="785" class="text-small">• confidence · summary</text>
+  <text x="320" y="800" class="text-small">• justification</text>
+
+  <!-- Data Flow -->
+  <rect x="630" y="690" width="500" height="130" rx="8" class="box"/>
+  <text x="880" y="710" class="text-title" text-anchor="middle">Data Flow</text>
+  
+  <text x="645" y="735" class="text-body">1. User submits free-text report</text>
+  <text x="645" y="755" class="text-body">2. Backend → Gemini extraction</text>
+  <text x="645" y="775" class="text-body">3. Frontend applies hybrid scoring</text>
+  <text x="645" y="795" class="text-body">4. Duplicate detection + flagging</text>
+  <text x="645" y="815" class="text-body">5. Volunteer matching + assignment</text>
+
+  <!-- Footer -->
+  <text x="600" y="880" class="text-small" text-anchor="middle">Built for Solution Challenge 2026 — Smart Resource Allocation</text>
+</svg>

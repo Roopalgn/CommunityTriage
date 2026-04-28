@@ -12,3 +12,5 @@ data/state.json
 prompt.txt
 plan.md
 info.md
+DEMO_SCRIPT.md
+.cursor/

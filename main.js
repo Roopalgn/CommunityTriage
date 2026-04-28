@@ -820,13 +820,19 @@ async function handleCsvImport(e) {
     const rows = parseCsvText(await file.text())
     if (!rows.length) { state.analysisStatus = { kind: 'error', message: 'CSV needs header + data rows.' }; render(); return }
     let imported = 0
+    const newReports = []
     rows.forEach(row => {
       const incident = row.incident || row.report || row.text || row.description || ''
       if (!incident.trim()) return
       const report = buildLocalReport({ incident, location: row.location || row.area || '', support: row.support || row.need || '', source: row.source || 'CSV import' })
-      addAudit('analyze', report.id, `CSV import: ${report.id}`, { source: 'csv-import' })
+      newReports.push(report)
+      addAudit('analyze', report.id, `CSV import: ${report.id} with ${report.confidence}% confidence.`, { source: 'csv-import', provider: 'Local fallback' })
       imported++
     })
+    if (imported > 0) {
+      state.reports = [...newReports, ...state.reports]
+      state.selectedReportId = newReports[0].id
+    }
     state.analysisStatus = { kind: 'success', message: `Imported ${imported} report${imported === 1 ? '' : 's'}.` }
     saveSnapshot(); go('cases')
   } catch (err) { state.analysisStatus = { kind: 'error', message: `CSV failed: ${err.message}` }; render() }

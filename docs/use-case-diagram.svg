@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 820" style="background:#0B1220">
+  <defs>
+    <style>
+      .sys-box { fill: none; stroke: #4CC9F0; stroke-width: 2; stroke-dasharray: 8,4; }
+      .actor-circle { fill: #162235; stroke: #4CC9F0; stroke-width: 2; }
+      .use-case { fill: #162235; stroke: #4CC9F0; stroke-width: 2; }
+      .use-case-ai { fill: #162235; stroke: #818cf8; stroke-width: 2; }
+      .use-case-sys { fill: #162235; stroke: #34D399; stroke-width: 2; }
+      .text { fill: #E6EDF3; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; }
+      .text-small { fill: #8FA3B8; font-family: 'Inter', sans-serif; font-size: 11px; }
+      .text-title { fill: #4CC9F0; font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 700; }
+      .text-actor { fill: #E6EDF3; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; }
+      .text-sys { fill: #4CC9F0; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; }
+      .assoc { stroke: #8FA3B8; stroke-width: 1.5; fill: none; }
+      .include { stroke: #818cf8; stroke-width: 1.5; fill: none; stroke-dasharray: 5,3; marker-end: url(#arr-include); }
+      .extend { stroke: #F59E0B; stroke-width: 1.5; fill: none; stroke-dasharray: 5,3; marker-end: url(#arr-extend); }
+      .label-include { fill: #818cf8; font-family: 'Inter', sans-serif; font-size: 10px; }
+      .label-extend { fill: #F59E0B; font-family: 'Inter', sans-serif; font-size: 10px; }
+    </style>
+    <marker id="arr-include" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#818cf8"/>
+    </marker>
+    <marker id="arr-extend" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#F59E0B"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="600" y="38" class="text-title" text-anchor="middle">CommunityTriage — Use Case Diagram</text>
+
+  <!-- System boundary -->
+  <rect x="220" y="60" width="760" height="680" rx="16" class="sys-box"/>
+  <text x="600" y="88" class="text-sys" text-anchor="middle">CommunityTriage System</text>
+
+  <!-- ─── ACTORS ─── -->
+
+  <!-- Actor 1: NGO Coordinator -->
+  <!-- head -->
+  <circle cx="90" cy="200" r="22" class="actor-circle"/>
+  <text x="90" y="207" class="text" text-anchor="middle" font-size="18">👤</text>
+  <!-- body -->
+  <line x1="90" y1="222" x2="90" y2="280" stroke="#4CC9F0" stroke-width="2"/>
+  <line x1="90" y1="240" x2="60" y2="265" stroke="#4CC9F0" stroke-width="2"/>
+  <line x1="90" y1="240" x2="120" y2="265" stroke="#4CC9F0" stroke-width="2"/>
+  <line x1="90" y1="280" x2="65" y2="310" stroke="#4CC9F0" stroke-width="2"/>
+  <line x1="90" y1="280" x2="115" y2="310" stroke="#4CC9F0" stroke-width="2"/>
+  <text x="90" y="330" class="text-actor" text-anchor="middle">NGO</text>
+  <text x="90" y="345" class="text-actor" text-anchor="middle">Coordinator</text>
+
+  <!-- Actor 2: Field Volunteer -->
+  <circle cx="90" cy="490" r="22" class="actor-circle"/>
+  <text x="90" y="497" class="text" text-anchor="middle" font-size="18">🧑</text>
+  <line x1="90" y1="512" x2="90" y2="570" stroke="#4CC9F0" stroke-width="2"/>
+  <line x1="90" y1="530" x2="60" y2="555" stroke="#4CC9F0" stroke-width="2"/>
+  <line x1="90" y1="530" x2="120" y2="555" stroke="#4CC9F0" stroke-width="2"/>
+  <line x1="90" y1="570" x2="65" y2="600" stroke="#4CC9F0" stroke-width="2"/>
+  <line x1="90" y1="570" x2="115" y2="600" stroke="#4CC9F0" stroke-width="2"/>
+  <text x="90" y="620" class="text-actor" text-anchor="middle">Field</text>
+  <text x="90" y="635" class="text-actor" text-anchor="middle">Volunteer</text>
+
+  <!-- Actor 3: Gemini AI (right side) -->
+  <circle cx="1110" cy="340" r="22" class="actor-circle" stroke="#818cf8"/>
+  <text x="1110" y="347" class="text" text-anchor="middle" font-size="18">🤖</text>
+  <line x1="1110" y1="362" x2="1110" y2="420" stroke="#818cf8" stroke-width="2"/>
+  <line x1="1110" y1="380" x2="1080" y2="405" stroke="#818cf8" stroke-width="2"/>
+  <line x1="1110" y1="380" x2="1140" y2="405" stroke="#818cf8" stroke-width="2"/>
+  <line x1="1110" y1="420" x2="1085" y2="450" stroke="#818cf8" stroke-width="2"/>
+  <line x1="1110" y1="420" x2="1135" y2="450" stroke="#818cf8" stroke-width="2"/>
+  <text x="1110" y="470" class="text-actor" text-anchor="middle" fill="#818cf8">Gemini</text>
+  <text x="1110" y="485" class="text-actor" text-anchor="middle" fill="#818cf8">AI</text>
+
+  <!-- ─── USE CASES ─── -->
+
+  <!-- UC1: Submit Report -->
+  <ellipse cx="400" cy="180" rx="130" ry="32" class="use-case"/>
+  <text x="400" y="176" class="text" text-anchor="middle">Submit Incident</text>
+  <text x="400" y="192" class="text-small" text-anchor="middle">Report (text / CSV)</text>
+
+  <!-- UC2: Analyze with AI -->
+  <ellipse cx="680" cy="180" rx="130" ry="32" class="use-case-ai"/>
+  <text x="680" y="176" class="text" text-anchor="middle" fill="#c4b5fd">AI Extraction</text>
+  <text x="680" y="192" class="text-small" text-anchor="middle">via Gemini 2.5 Flash</text>
+
+  <!-- UC3: View Ranked Queue -->
+  <ellipse cx="400" cy="290" rx="130" ry="32" class="use-case"/>
+  <text x="400" y="286" class="text" text-anchor="middle">View Ranked</text>
+  <text x="400" y="302" class="text-small" text-anchor="middle">Case Queue</text>
+
+  <!-- UC4: Review Flagged Cases -->
+  <ellipse cx="680" cy="290" rx="130" ry="32" class="use-case"/>
+  <text x="680" y="286" class="text" text-anchor="middle">Review Flagged</text>
+  <text x="680" y="302" class="text-small" text-anchor="middle">Cases (low-conf / dup)</text>
+
+  <!-- UC5: Override Priority -->
+  <ellipse cx="400" cy="400" rx="130" ry="32" class="use-case"/>
+  <text x="400" y="396" class="text" text-anchor="middle">Override Urgency</text>
+  <text x="400" y="412" class="text-small" text-anchor="middle">and Priority Score</text>
+
+  <!-- UC6: Assign Volunteer -->
+  <ellipse cx="680" cy="400" rx="130" ry="32" class="use-case"/>
+  <text x="680" y="396" class="text" text-anchor="middle">Assign Volunteer</text>
+  <text x="680" y="412" class="text-small" text-anchor="middle">to Case</text>
+
+  <!-- UC7: View Insights -->
+  <ellipse cx="400" cy="510" rx="130" ry="32" class="use-case"/>
+  <text x="400" y="506" class="text" text-anchor="middle">View Insights</text>
+  <text x="400" y="522" class="text-small" text-anchor="middle">Hotspots + Charts</text>
+
+  <!-- UC8: Export Audit Trail -->
+  <ellipse cx="680" cy="510" rx="130" ry="32" class="use-case"/>
+  <text x="680" y="506" class="text" text-anchor="middle">Export Audit Trail</text>
+  <text x="680" y="522" class="text-small" text-anchor="middle">Event + Request IDs</text>
+
+  <!-- UC9: Local Fallback (system) -->
+  <ellipse cx="540" cy="620" rx="130" ry="32" class="use-case-sys"/>
+  <text x="540" y="616" class="text" text-anchor="middle" fill="#34D399">Local Rule-Based</text>
+  <text x="540" y="632" class="text-small" text-anchor="middle" fill="#34D399">Fallback Triage</text>
+
+  <!-- UC10: Persist State (system) -->
+  <ellipse cx="820" cy="620" rx="130" ry="32" class="use-case-sys"/>
+  <text x="820" y="616" class="text" text-anchor="middle" fill="#34D399">Persist State</text>
+  <text x="820" y="632" class="text-small" text-anchor="middle" fill="#34D399">localStorage + JSON</text>
+
+  <!-- ─── ASSOCIATIONS ─── -->
+
+  <!-- Coordinator → Submit Report -->
+  <line x1="112" y1="220" x2="270" y2="185" class="assoc"/>
+  <!-- Coordinator → View Ranked Queue -->
+  <line x1="112" y1="250" x2="270" y2="290" class="assoc"/>
+  <!-- Coordinator → Review Flagged -->
+  <line x1="112" y1="260" x2="550" y2="290" class="assoc"/>
+  <!-- Coordinator → Override Priority -->
+  <line x1="112" y1="270" x2="270" y2="395" class="assoc"/>
+  <!-- Coordinator → Assign Volunteer -->
+  <line x1="112" y1="275" x2="550" y2="400" class="assoc"/>
+  <!-- Coordinator → View Insights -->
+  <line x1="112" y1="285" x2="270" y2="505" class="assoc"/>
+  <!-- Coordinator → Export Audit -->
+  <line x1="112" y1="290" x2="550" y2="510" class="assoc"/>
+
+  <!-- Field Volunteer → Submit Report -->
+  <line x1="112" y1="500" x2="270" y2="200" class="assoc"/>
+
+  <!-- Submit Report --include--> AI Extraction -->
+  <line x1="530" y1="180" x2="550" y2="180" class="include"/>
+  <text x="540" y="170" class="label-include" text-anchor="middle">«include»</text>
+
+  <!-- AI Extraction --include--> Gemini AI actor -->
+  <line x1="810" y1="180" x2="1088" y2="330" class="include"/>
+  <text x="960" y="240" class="label-include" text-anchor="middle">«include»</text>
+
+  <!-- AI Extraction --extend--> Local Fallback -->
+  <line x1="680" y1="212" x2="620" y2="588" class="extend"/>
+  <text x="700" y="400" class="label-extend">«extend»</text>
+
+  <!-- Assign Volunteer --include--> Persist State -->
+  <line x1="810" y1="400" x2="820" y2="588" class="include"/>
+  <text x="840" y="500" class="label-include">«include»</text>
+
+  <!-- Override --include--> Persist State -->
+  <line x1="530" y1="400" x2="700" y2="600" class="include"/>
+
+  <!-- ─── LEGEND ─── -->
+  <rect x="240" y="700" width="700" height="60" rx="8" fill="#121A2B" stroke="#4CC9F0" stroke-width="1" opacity="0.6"/>
+  <text x="260" y="720" class="text-small">Legend:</text>
+  <!-- solid line -->
+  <line x1="320" y1="718" x2="370" y2="718" stroke="#8FA3B8" stroke-width="1.5"/>
+  <text x="380" y="722" class="text-small">Association</text>
+  <!-- include -->
+  <line x1="460" y1="718" x2="510" y2="718" stroke="#818cf8" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <polygon points="510,715 518,718 510,721" fill="#818cf8"/>
+  <text x="525" y="722" class="text-small" fill="#818cf8">«include»</text>
+  <!-- extend -->
+  <line x1="620" y1="718" x2="670" y2="718" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <polygon points="670,715 678,718 670,721" fill="#F59E0B"/>
+  <text x="685" y="722" class="text-small" fill="#F59E0B">«extend»</text>
+  <!-- AI boundary -->
+  <ellipse cx="800" cy="718" rx="20" ry="10" fill="none" stroke="#818cf8" stroke-width="1.5"/>
+  <text x="828" y="722" class="text-small" fill="#818cf8">AI use case</text>
+  <!-- system -->
+  <ellipse cx="920" cy="718" rx="20" ry="10" fill="none" stroke="#34D399" stroke-width="1.5"/>
+  <text x="948" y="722" class="text-small" fill="#34D399">System auto</text>
+
+  <!-- second legend row -->
+  <text x="260" y="748" class="text-small">Actors:</text>
+  <text x="310" y="748" class="text-small">👤 NGO Coordinator</text>
+  <text x="470" y="748" class="text-small">🧑 Field Volunteer</text>
+  <text x="620" y="748" class="text-small" fill="#818cf8">🤖 Gemini AI (external)</text>
+</svg>
